@@ -888,45 +888,33 @@ public class Main {
 
 ##### Challenges
 
-###### Storage on Kubernetes is hard
-
 - [Why Is Storage On Kubernetes So Hard?](https://softwareengineeringdaily.com/2019/01/11/why-is-storage-on-kubernetes-is-so-hard/)
 - Kubernetes does not support storing state. Almost all production applications are stateful, i.e. require some sort of external storage.
 - A Kubernetes architecture is very dynamic. Containers are being created and destroyed, depending on the load and on the specifications of the developers. Pods and containers can self-heal and replicate. They are, in essence, ephemeral.
 - A persistent storage solution cannot afford this dynamic behavior. **Persistent storage cannot be bound to the rules of being dynamically created and destroyed.**
-- The storage landscape for cloud native applications is not easy to understand. The [Kubernetes storage lingo](https://www.youtube.com/watch?v=uSxlgK1bCuA) can be confusing, with many terms that have intricate meanings and subtle changes.
 
-###### Volume plugins
-
-- Kubernetes communicate with storage using control plane interfaces
-- The interfaces link Kubernetes with external storage
-- The external storage solutions linked to Kubernetes are called Volume plugins
-- Volume Plugins enable abstracting storage and grant storage portability
-
-###### Storage in Native Kubernetes
+##### Storage in Native Kubernetes
 
 - Kubernetes natively offers some solutions to manage storage:
-	+ Ephemeral options
+	+ Ephemeral options:
+		* emptyDir volumes
+		* configMap and secret volumes
 	+ Persistent storage:
-		* Persistent Volumes (PV):
-			- Are storage units that have been provisioned by an administrator
-			- Are independent of any single pod
-		* Persistent Volume Claims (PVC):
-			- Are requests for the storage, i.e. PVs. With PVC
-			- It’s possible to bind storage to a particular node, making it available to that node for usage
+		* Persistent Volumes (PV)
+		* Persistent Volume Claims (PVC)
 		* Storage Classes
 		* StatefulSets
 - There are two ways of dealing with storage:
 	+ Static provisioning:
-		* Administrator provisions PVs that they think pods might require before the actual requests are made
-		* These PVs are manually bound to specific pods with explicit PVCs
+		* Administrator provisions PVs that they think pods might require before the actual requests are made.
+		* These PVs are manually bound to specific pods with explicit PVCs.
 		* In practice, statically defined PVs are not compatible with the portable structure of Kubernetes, the storage that is being used can be environment-dependent. Manual binding requires changes in the YAML file to point to the vendor-specific storage solutions.
 		* Goes against the mindset of Kubernetes in terms of how developers think about resources:
 			- CPU and memory are not allocated beforehand and bound to pods or containers. They are dynamically granted.
 	+ Dynamic provisioning:
-		* Done with Storage Classes
+		* Done with Storage Classes.
 		* Cluster administrator do not need to manually create the PVs beforehand:
-			- They instead create multiple profiles of storage, just like templates
+			- They instead create multiple profiles of storage, just like templates.
 			- When a developer makes a PVC, depending on the requirements of the request, one of these templates is created at the time of the request, and attached to the pod.
 
 ![Broad overview of how external storage is handled](images/Kubernetes_PVC.png "How external storage is handled with native Kubernetes")
@@ -957,13 +945,38 @@ public class Main {
 
 ##### Volumes
 
-###### emptyDir
+###### Volume plugins
 
-- Are shared filesystems inside a pod
-- Their lifecycle is tied to a pod
-- Is initially empty
-- Created when a Pod is assigned to a Node
-- Can be used to share data between containers within the same Pod
+- Kubernetes communicate with storage using control plane interfaces.
+- The interfaces link Kubernetes with external storage.
+- The external storage solutions linked to Kubernetes are called Volume plugins.
+- Volume Plugins enable abstracting storage and grant storage portability.
+
+###### emptyDir volumes
+
+- The simple K8s volumes.
+- Their lifecycle is tied to a pod:
+	+ Created when a Pod is assigned to a Node.
+	+ Are shared filesystems inside a pod.
+	+ Moving the pod to another node will destroy the contents of the volume.
+- Can be used as a cache or to share data between containers within the same Pod.
+
+###### configMap and secret volumes
+
+- Mounted files for configuration or sensitive values.
+- K8s manages their contents.
+- Don’t use them for writable application data.
+
+###### Persistent Volume (PV)
+
+- A cluster-wide resource, that represents a piece of storage in the cluster that has been provisioned by the cluster administrator or is dynamically provisioned.
+- Can be backed by various types of storage such as local disk, NFS, cloud storage, etc.
+- Have a lifecycle independent of any individual pod that uses the PV. This means that the data in the PV can outlive the pod that it was attached to.
+- In order to use a PV:
+	+ You must make a Persistent Volume Claim (PVC), which is a request for the storage.
+	+ When a user creates a PVC, Kubernetes finds an appropriate PV that satisfies the claim's requirements and binds them together. If no PV is available, depending on the configuration, the cluster might dynamically create a PV that meets the claim's needs.
+	+ Once bound, the PVC is "locked" and can only be used by one Pod (depending on the access mode specified). This ensures that the PV resource is exclusively used by the pod it's bound to.
+	+ If there is no suitable PV available, the PVC will stay in the "Pending" state, waiting for a suitable PV.
 
 #### YAML Configuration file
 
