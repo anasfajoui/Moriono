@@ -750,6 +750,62 @@ public class Main {
 	+ By default, kubectl looks for a file named `config` in the `$HOME/.kube` directory.
 	+ [Documentation](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/).
 
+#### YAML Configuration file
+
+- There declarative approach helps you to define how things should be rather than how they should change. This is more sustainable in the long run than the imperative approach and will let us keep our sanity.
+- Usually the `deployment.yaml` file resides inside a folder named `manifests`.
+- Example:
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.16
+        ports:
+        - containerPort: 8080
+```
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service
+spec:
+  selector:
+    app: nginx
+  ports:
+    - protocol: TCP
+      port: 80 # This is the port that will receive requests
+      targetPort: 8080 # This is the container port
+```
+
+- 3 parts:
+	+ Metadata
+	+ Specification: the attributes are specific to the kind
+		* Template: is the blueprint of a pod, its where you specify:
+			- The name of the container
+			- What ports to open
+			- The image
+	+ Status: automatically generated and added by K8s
+- K8s compares the status which gets it from etcd with the specs, then changes the actual state of the cluster to match the desired.
+- Connection between components happen with labels and selectors
+	* Labels are `key: value` pairs that are attributed to k8s components
+	* Selectors are used to let a component know what other components should be picked up based on their labels
+
 #### Components
 
 - Pod
@@ -978,61 +1034,172 @@ public class Main {
 	+ Once bound, the PVC is "locked" and can only be used by one Pod (depending on the access mode specified). This ensures that the PV resource is exclusively used by the pod it's bound to.
 	+ If there is no suitable PV available, the PVC will stay in the "Pending" state, waiting for a suitable PV.
 
-#### YAML Configuration file
+#### Organizing a cluster
 
-- There declarative approach helps you to define how things should be rather than how they should change. This is more sustainable in the long run than the imperative approach and will let us keep our sanity.
-- Usually the `deployment.yaml` file resides inside a folder named `manifests`.
-- Example:
+##### Namespaces
+
+- [Namespaces](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/) are used to keep resources separated.
+- Can be used to split the cluster into virtual clusters, one for each project.
+- Most commonly they would be used to separate environments such as prod, testing, staging.
+- DNS entry for services includes the namespace so you can still have projects communicate with each other if needed through service.namespace address.
+- Accessing namespaces with kubectl is achieved by using the -n flag: 
+	```bash
+	$ kubectl get pods -n kube-system
+	# To see all
+	$ kubectl get all --all-namespaces
+	```
+- You can define the namespace to use by adding it to the metadata section of the yaml files.
+- If you're using a specific namespace constantly, you can set it to be used by default with `kubectl config set-context --current --namespace=<name>`.
+- A community-created tool [kubectx](https://github.com/ahmetb/kubectx) makes changing the cluster and listing existing namespaces and changing the default easy.
+
+##### Labels
+
+- [Labels](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/) are used to separate an application from others inside a namespace and to group different resources together.
+- Are key-value pairs and they can be modified, added or removed at any time.
+- Can also be added to almost anything.
+- Can help us identify resources and K8s can use them to act upon a group of resources: you can query resources that have a certain label. The labels are also used by [selectors](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors) to pick a set of objects.
+- To grouping objects with labels, you either add the label into the yaml file or use command [kubectl label](https://kubernetes.io/docs/reference/kubectl/generated/kubectl_label/).
+- Example: move pods to labeled nodes with labels and [nodeSelector](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector)
+	1. Add a nodeSelector to the deployment:
+		```yaml
+		...
+		spec:
+			containers:
+			- name: <my-app>
+			image: <docker-image>
+			nodeSelector:
+			networkquality: excellent
+		```
+		If the pod is already running, K8s won't terminate it to avoid unwanted changes in the system, instead a new pod is scheduled:
+		```bash
+		$ kubectl get po
+		NAME                                READY   STATUS    RESTARTS   AGE
+		<my-app>-dep-123-abc   				1/1     Running   0          107s
+		<my-app>-dep-321-cba   				0/1     Pending   0          23s
+		```
+		The status of the new pod is "Pending" since there are no nodes with the desired label yet.
+	2. Label the node(s):
+		```bash
+		$ kubectl label nodes k3d-k3s-default-agent-1 networkquality=excellent
+		node/k3d-k3s-default-agent-1 labeled
+
+		$ kubectl get po
+		NAME                                READY   STATUS    RESTARTS   AGE
+		<my-app>-dep-321-cba   				1/1     Running   0          5m30s
+		```
+
+##### Selector
+
+- Filters Kubernetes objects using labels.
+- Deployments use them to identify their Pods; Services use it to identify which Pods should receive traffic.
 ```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: nginx-deployment
-  labels:
-    app: nginx
-spec:
-  replicas: 2
-  selector:
-    matchLabels:
-      app: nginx
-  template:
-    metadata:
-      labels:
-        app: nginx
-    spec:
-      containers:
-      - name: nginx
-        image: nginx:1.16
-        ports:
-        - containerPort: 8080
+selector:
+matchLabels:
+	app: project
 ```
 
+##### nodeSelector
+
+- Constrains a Pod to nodes that have matching node labels.
+- It is simple but limited: exact label matching only.
 ```yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: nginx-service
 spec:
-  selector:
-    app: nginx
-  ports:
-    - protocol: TCP
-      port: 80 # This is the port that will receive requests
-      targetPort: 8080 # This is the container port
+  nodeSelector:
+    disktype: ssd
 ```
 
-- 3 parts:
-	+ Metadata
-	+ Specification: the attributes are specific to the kind
-		* Template: is the blueprint of a pod, its where you specify:
-			- The name of the container
-			- What ports to open
-			- The image
-	+ Status: automatically generated and added by K8s
-- K8s compares the status which gets it from etcd with the specs, then changes the actual state of the cluster to match the desired.
-- Connection between components happen with labels and selectors
-	* Labels are `key: value` pairs that are attributed to k8s components
-	* Selectors are used to let a component know what other components should be picked up based on their labels
+##### Node affinity
+
+- A more powerful version of `nodeSelector`. It uses expressions and can be either mandatory or a preference.
+```yaml
+spec:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: kubernetes.io/arch
+                operator: In
+                values: ["amd64"]
+```
+- This requires an `amd64` node.
+- Useful operators include `In`, `NotIn`, `Exists`, `DoesNotExist`, `Gt`, and `Lt`.
+- You can also express a preference:
+```yaml
+preferredDuringSchedulingIgnoredDuringExecution:
+  - weight: 100
+    preference:
+      matchExpressions:
+        - key: zone
+          operator: In
+          values: ["eu-west"]
+```
+- K8s will prefer matching nodes, but can use another node if necessary.
+- The long names mean:
+	+ `required`: strict; the Pod remains Pending if no matching node exists.
+	+ `preferred`: best effort.
+	+ `IgnoredDuringExecution`: Kubernetes does not evict an already-running Pod if node labels later change.
+
+##### Pod affinity
+
+- Places a Pod near other Pods with particular labels—often on the same node or in the same zone.
+```yaml
+affinity:
+  podAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchLabels:
+            app: database
+        topologyKey: topology.kubernetes.io/zone
+```
+- This requires the Pod to run in the same zone as a Pod labeled `app: database`.
+- Used when application components benefit from lower network latency or shared locality.
+
+##### Pod anti-affinity
+
+- Keeps Pods away from matching Pods.
+- Commonly used for high availability.
+```yaml
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchLabels:
+            app: project
+        topologyKey: kubernetes.io/hostname
+```
+- This says: “do not place two Pods labeled `app: project` on the same node.”
+- If replicas are `3`, K8s needs at least three eligible nodes for this strict rule. Otherwise, remaining Pods stay `Pending`.
+- `topologyKey` defines what “near” or “apart” means:
+	+ `kubernetes.io/hostname` → node-level placement
+	+ `topology.kubernetes.io/zone` → zone-level placement
+	+ a custom label → your own topology boundary
+
+##### Taint
+
+- Is added to a node. It tells K8s: “do not schedule ordinary Pods here.”
+```bash
+kubectl taint nodes worker-gpu gpu=true:NoSchedule
+```
+- Effects:
+	+ `NoSchedule`: Pods without a matching toleration cannot be scheduled there.
+	+ `PreferNoSchedule`: avoid scheduling there if possible.
+	+ `NoExecute`: evicts existing non-tolerating Pods and blocks future ones.
+- Typical use: reserve special nodes—GPU nodes, database nodes, critical-workload nodes—or keep Pods away from unhealthy nodes.
+
+##### Toleration
+
+- Is placed on a Pod. It lets that Pod schedule onto, or remain on, a node with a matching taint.
+```yaml
+spec:
+  tolerations:
+    - key: gpu
+      operator: Equal
+      value: "true"
+      effect: NoSchedule
+```
+- That Pod may now run on nodes tainted `gpu=true:NoSchedule`.
+- A toleration is permission, not a guarantee. To ensure the Pod actually lands on a GPU node, combine it with a node label plus `nodeSelector` or node affinity.
 
 #### Best practices
 
