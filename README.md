@@ -806,54 +806,71 @@ spec:
 	* Labels are `key: value` pairs that are attributed to k8s components
 	* Selectors are used to let a component know what other components should be picked up based on their labels
 
-#### Components
+#### API Extension
 
-- Pod
-	+ Is the smallest deployable unit that you can manage in K8s.
-	+ An abstraction around one or more containers with shared storage and network resources.
-	+ Container of containers.
+##### [Custom Resource](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/)
 
-	![pods](images/pods.png)
-- ReplicaSets
-	+ Used to tell how many replicas of a Pod you want.
-	+ It will delete or create Pods until the number of Pods you wanted are running.
-	+ ReplicaSets are automatically managed by Deployments.
-- Deployment
-	+ Manages a set of Pods (abstraction over pods).
-  	+ Provides declarative updates for Pods and ReplicaSets.
-  	+ You describe a desired state in a Deployment, and the Deployment Controller changes the actual state to the desired state at a controlled rate.
-  	+ A Deployment resource takes care of deployment. It's a way to tell Kubernetes what container you want, how they should be running and how many of them should be running.
-  	+ Kubernetes take care of rolling out a new version of a deployment by using tags (e.g. hehe/image:tag). With the deployments, each time we update the image we can modify and apply the new deployment yaml.
-- Secret
-	+ A way to store sensitive data (passwords, OAuth tokens, SSH keys, etc.) in K8s
-	+ Secrets aren't accessible to anyone
-	+ Stored in etcd
-	+ Can be referenced in other config files
-	+ YAML:
-	
-	```yaml
-	apiVersion: v1
-	kind: Secret
-	metadata:
-		name: my-secret
-	type: Opaque # Most basic secret type
-	data:
-		db-root-username: dXNlcm5hbWU= # Must be encoded in base64
-		db-root-password: cGFzc3dvcmQ=
-	```
-- ConfigMap:
-	+ Similar to secrets but used for non-sensitive data
-	+ Stores everything in plain text and nothing is encrypted by default
-- Updating images
-	+ Kubernetes doesn't know if a Docker image is modified or wether a newer version is uploaded to the repository
-	+ By default, Kubernetes won't pull the image if it already exists
-	+ By using tags (e.g. fjwix/image:tag) with the deployments each time you update the image you can modify and apply the new deployment yaml. From the tag Kubernetes will know that the image is a new one and pulls it.
-	+ When you first create a Deployment, StatefulSet, Pod, or other object that includes a Pod template, by default the pull policy of all containers in that pod will be set to `IfNotPresent` if it is not explicitly specified. This policy causes the kubelet to skip pulling an image if it already exists.
-	+ The `imagePullPolicy` for a container and the tag of the image affect when the kubelet attempts to pull (download) the specified image. Here's a list of the values you can set for imagePullPolicy and the effects these values have:
-		* **`IfNotPresent`:** the image is pulled only if it is not already present locally
-		* **`Always`:** every time the kubelet launches a container, the kubelet queries the container image registry to resolve the name to an image digest. If the kubelet has a container image with that exact digest cached locally, the kubelet uses its cached image; otherwise, the kubelet pulls the image with the resolved digest, and uses that image to launch the container.
-		* **`Never`:** the kubelet does not try fetching the image. If the image is somehow already present locally, the kubelet attempts to start the container; otherwise, startup fails. See pre-pulled images for more details.
-	+ The caching semantics of the underlying image provider make even imagePullPolicy: Always efficient, as long as the registry is reliably accessible. Your container runtime can notice that the image layers already exist on the node so that they don't need to be downloaded again.
+- Are instances of resource types added to K8s through API extensions. A resource is an endpoint in the K8s API that stores a collection of API objects of a certain kind; for example, the built-in pods resource contains a collection of Pod objects.
+- Is an extension of the K8s API that is not necessarily available in a default K8s installation.
+- It represents a customization of a particular K8s installation. However, many core Kubernetes functions are built using custom resources, making K8s more modular.
+- They can appear and disappear in a running cluster through dynamic registration.
+- Cluster admins can update custom resources independently of the cluster itself.
+- Once a custom resource is installed, users can create and access its objects using kubectl, just as they do for built-in resources like Pods.
+
+#### Workloads
+
+##### [Pod](https://kubernetes.io/docs/concepts/workloads/pods/)
+
+- Is the smallest deployable unit that you can manage in K8s.
+- An abstraction around one or more containers with shared storage and network resources.
+- Container of containers.
+
+![pods](images/pods.png)
+
+##### [ReplicaSets](https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/)
+
+- Used to tell how many replicas of a Pod you want.
+- It will delete or create Pods until the number of Pods you wanted are running.
+- ReplicaSets are automatically managed by Deployments.
+
+##### [Deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/)
+
+- Manages a set of Pods (abstraction over pods).
+- Provides declarative updates for Pods and ReplicaSets.
+- You describe a desired state in a Deployment, and the Deployment Controller changes the actual state to the desired state at a controlled rate.
+- A Deployment resource takes care of deployment. It's a way to tell Kubernetes what container you want, how they should be running and how many of them should be running.
+- Kubernetes take care of rolling out a new version of a deployment by using tags (e.g. hehe/image:tag). With the deployments, each time we update the image we can modify and apply the new deployment yaml.
+
+##### [StatefulSet](https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/)
+
+- Are similar to Deployments except they make sure that if a pod dies, the replacement is identical, with the same network identity and name.
+- If the pod is scaled, each copy will have its own storage. So, StatefulSets are for stateful applications, where the state is stored inside the app, not outside, such as in a database.
+- Are ideal for scaling applications that require persistent state, such as video game servers or databases.
+- They ensure data safety by not deleting the associated volumes when the StatefulSet is deleted.
+- They requires a "Headless Service" to be responsible for the network identity, to do that:
+	+ Define a "headless service" with clusterIP: None.
+	+ This will instruct K8s not to do proxying or load balancing, but instead allow direct access to the Pods.
+	+ All the replicas of the StatefulSet have a fixed domain name, if a pod dies, it is guaranteed to have the same name when it is scheduled again and it is attached to the same volume.
+
+##### [Job](https://kubernetes.io/docs/concepts/workloads/controllers/job/)
+
+- Is used to run workloads that are not continuous services, but are supposed to run from start to end.
+- Its status is saved so that it can be monitored after the execution has ended.
+- Can be configured so that they run multiple instances of the same task concurrently, sequentially and until a set number of successful completions have been achieved.
+- An example use case would be creating backups from a database.
+- [CronJob](https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/): is very similar to Jobs but they run on schedule.
+
+##### About updating images
+
+- k8S doesn't know if a Docker image is modified or wether a newer version is uploaded to the repository.
+- By default, Kubernetes won't pull the image if it already exists.
+- By using tags (e.g. fjwix/image:tag) with the deployments, each time you update the image you can modify and apply the new deployment yaml. From the tag Kubernetes will know that the image is a new one and pulls it.
+- When you first create a Deployment, StatefulSet, Pod, or other object that includes a Pod template, by default the pull policy of all containers in that pod will be set to `IfNotPresent` if it is not explicitly specified. This policy causes the kubelet to skip pulling an image if it already exists.
+- The `imagePullPolicy` for a container and the tag of the image affect when the kubelet attempts to pull (download) the specified image. Here's a list of the values you can set for imagePullPolicy and the effects these values have:
+	+ **`IfNotPresent`:** the image is pulled only if it is not already present locally
+	+ **`Always`:** every time the kubelet launches a container, the kubelet queries the container image registry to resolve the name to an image digest. If the kubelet has a container image with that exact digest cached locally, the kubelet uses its cached image; otherwise, the kubelet pulls the image with the resolved digest, and uses that image to launch the container.
+	+ **`Never`:** the kubelet does not try fetching the image. If the image is somehow already present locally, the kubelet attempts to start the container; otherwise, startup fails. See pre-pulled images for more details.
+- The caching semantics of the underlying image provider make even imagePullPolicy: Always efficient, as long as the registry is reliably accessible. Your container runtime can notice that the image layers already exist on the node so that they don't need to be downloaded again.
 
 #### Networking
 
@@ -1200,6 +1217,188 @@ spec:
 ```
 - That Pod may now run on nodes tainted `gpu=true:NoSchedule`.
 - A toleration is permission, not a guarantee. To ensure the Pod actually lands on a GPU node, combine it with a node label plus `nodeSelector` or node affinity.
+
+#### Monitoring
+
+##### [Observability](https://grafana.com/docs/grafana-cloud/learn-and-build/get-started/learn/what-is-observability/) (o11y)
+
+- Is the process of making a system’s internal state more transparent.
+- Systems are made observable by the data they produce, which in turn helps you to determine if your infrastructure or application is healthy and functioning normally.
+- To understand the state of a system, we need time-series data, which includes a time stamp and a numeric value. The fundamental types data that are:
+
+###### [Metrics](https://kubernetes.io/docs/concepts/cluster-administration/system-metrics/)
+
+- Are numeric measurements that are timestamped to indicate when they were collected. If you track an application or system, you might measure:
+	+ How many system resources are currently being used, such as memory or storage.
+	+ How long it takes a particular service to respond to a request.
+	+ How many users are accessing the application right now.
+- Can tell you how often something is failing, but not why.
+- In most cases metrics are available on /metrics endpoint of the HTTP server.
+- In a production environment you may want to configure [Prometheus](https://prometheus.io/) Server or some other metrics scraper to periodically gather these metrics and make them available in some kind of time series database.
+- Metric lifecycle: Alpha metric → Beta metric → Stable metric → Deprecated metric → Hidden metric → Deleted metric
+	+ Alpha metrics:
+		* Have no stability guarantees.
+		* Can be modified or deleted at any time.
+	+ Beta metrics:
+		* Observe a looser API contract than its stable counterparts.
+		* No labels can be removed from beta metrics during their lifetime, however, labels can be added while the metric is in the beta stage.
+	+ Stable metrics: are guaranteed to not change.
+	+ Deprecated metrics: are slated for deletion, but are still available for use. These metrics include an annotation about the version in which they became deprecated, e.g.:
+		* Before deprecation
+			```
+			# HELP some_counter this counts things
+			# TYPE some_counter counter
+			some_counter 0
+			```
+		* After deprecation
+			```
+			# HELP some_counter (Deprecated since 1.15.0) this counts things
+			# TYPE some_counter counter
+			some_counter 0
+			```
+	+ Hidden metrics: are no longer published for scraping, but are still available for use. A deprecated metric becomes a hidden metric after a period of time, based on its stability level. To use a hidden metric, you must enable it.
+	+ Deleted metrics: are no longer published and cannot be used.
+
+###### Logs:
+
+	+ Are time-stamped records of events that happen over time, such as error log files.
+	+ They help understand the behavior of infrastructure and applications as well as of users and business. For example, you can use logs to answer these questions:
+		* How many requests are processed per second?
+		* What percentage of requests are failing?
+		* How many distinct users are visiting the site per day?
+	+ Often contain the root cause of a failure or issue. Logs must be aggregated, stored, and indexed.
+
+###### Traces:
+
+	* Provide end-to-end insight because it tracks a system request as it travels through multiple locations/components of a system.
+	* They are made up of spans. Spans record how long each part of a request takes.
+	* Traces make it easier to understand root causes and locate which parts of the system are slow or having other problems.
+
+##### Monitoring stack in K8s
+
+- A typical monitoring stack has four components, each with a distinct role:
+    + **Prometheus**: collects and stores various cluster metrics over time, enabling graphs, rates, and trends.
+    + **Loki**: collects and stores container logs, making them searchable from a central place.
+    + **Alloy (K8s-monitoring)**: automatically collects pod logs from the node filesystem and forwards them to Loki.
+    + **Grafana**: visualizes both metrics and logs through dashboards and ad-hoc queries.
+
+![Monitoring Stack](images/K8s-monitoring-stack.png)
+
+
+
+#### Configuration
+
+- [Secret](https://kubernetes.io/docs/concepts/configuration/secret/):
+	+ A way to store sensitive data (passwords, OAuth tokens, SSH keys, etc.) in K8s.
+	+ Secrets aren't accessible to anyone.
+	+ Stored in etcd.
+	+ Can be referenced in other config files.
+	```yaml
+	apiVersion: v1
+	kind: Secret
+	metadata:
+		name: my-secret
+	type: Opaque # Most basic secret type
+	data:
+		db-root-username: dXNlcm5hbWU= # Must be encoded in base64
+		db-root-password: cGFzc3dvcmQ=
+	```
+	+ Encrypting secrets:
+		* Cloud service providers may have their own solution, like Google Cloud Secret Manager or AWS Secrets Manager.
+		* [SealedSecret](https://github.com/bitnami/sealed-secrets):
+			- Encrypts Secrets, so that they are safe to store - even inside a public repository.
+			- Can be decrypted only by the controller running in the target cluster and nobody else (not even the original author) is able to obtain the original Secret from the SealedSecret.
+		* Other tools like [SOPS](https://github.com/getsops/sops) and [age](https://github.com/FiloSottile/age) can be used to encrypt the secret.yaml files.
+
+- [ConfigMap](https://kubernetes.io/docs/concepts/configuration/configmap/):
+	+ Similar to secrets but used for non-sensitive data that doesn't have to be encoded and is not encrypted.
+	+ Stores everything in plain text and nothing is encrypted by default
+	+ Example: let's say you have a videogame server that takes a configuration file `serverconfig.txt` which looks like this:
+		```
+		maxplayers=12
+		difficulty=2
+		```
+		* Use a ConfigMap to contain the file:
+
+			```yaml
+			apiVersion: v1
+			kind: ConfigMap
+			metadata:
+			name: example-configmap
+			data:
+			serverconfig.txt: |
+				maxplayers=12
+				difficulty=2
+			```
+		* The ConfigMap can be added to the container as a volume. By changing a value, like "maxplayers" in this case, and applying the ConfigMap the changes would be reflected in that volume.
+			```yaml
+			spec:
+			volumes:
+				- name: game-config
+				configMap:
+					name: example-configmap
+			containers:
+				- name: game-server
+				image: example/game-server
+				volumeMounts:
+					- name: game-config
+					mountPath: /etc/game-config
+					readOnly: true
+			```
+
+#### [Helm](https://helm.sh/)
+
+- K8s applications are managed more easily with Helm, the package manager for Kubernetes.
+- It uses a packaging format called **charts** to define the dependencies of an application.
+
+##### Chart
+
+- Among other things, Helm charts include information for the version of the chart, the requirements of the application, such as the K8s version, as well as other charts that it may depend on.
+- Helm charts are hosted in remote repositories, much like Docker images on Docker Hub.
+- Before Helm can download a chart, you need to register its repository:
+	```bash
+	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+	helm repo add grafana https://grafana.github.io/helm-charts
+	helm repo update
+	```
+- Installing a Helm chart tells Helm to create and/or configure the K8s resources described by that chart in a target cluster.
+	+ Helm records the installation as a named **release** in a namespace.
+	+ Installation does not guarantee the app is healthy or ready; it only means Helm submitted the resource definitions successfully. Check with `helm status <release>` and `kubectl get pods`.
+	+ Example:
+	```bash
+	helm upgrade --install prom prometheus-community/prometheus \
+	--namespace monitoring \ # Deploy its K8s resources into the monitoring namespace.
+	--create-namespace \ # Create monitoring first if it does not already exist.
+	--values prom-values.yaml # Apply your custom settings, overriding the chart’s defaults.
+	```
+
+
+##### [Value files](https://helm.sh/docs/chart_template_guide/values_files/)
+
+- Helm charts ship with sensible defaults, but they're designed for many use cases.
+- A Helm values file is how you customize a chart for your specific situation.
+- Here's and example of a value file (grafana-values.yaml) for Grafana:
+	```yaml
+	adminPassword: admin
+
+	datasources:
+	datasources.yaml:
+		apiVersion: 1
+		datasources:
+		- name: Prometheus
+			type: prometheus
+			access: proxy
+			url: http://prom-prometheus-server
+			isDefault: true
+		- name: Loki
+			type: loki
+			access: proxy
+			url: http://loki-gateway.monitoring.svc.cluster.local
+			jsonData:
+			httpHeaderName1: X-Scope-OrgID
+			secureJsonData:
+			httpHeaderValue1: "1"
+	```
 
 #### Best practices
 
