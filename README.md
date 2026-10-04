@@ -737,6 +737,52 @@ public class Main {
 	+ API Servers are load balanced
 	+ etcd storage is distributed
 
+##### K3s & K3d
+
+###### K3s
+
+- Is a lightweight fully functional K8s distribution, designed to be smaller, simpler, and easier to operate.
+- It packages and simplifies the traditional K8s setup so that one master node can may include:
+	+ Kubernetes API
+	+ Scheduler
+	+ Controller Manager
+	+ Kubelet
+	+ containerd
+	+ etc.
+- It still exposes the normal Kubernetes API, so standard tools and resources work.
+- Is particularly useful for edge computing, IoT, small servers/VMs, development environments, and resource-constrained systems.
+- Despite being lightweight, K3s isn't merely a K8s simulator. It is a real K8s distribution and can be used in production.
+
+###### K3d
+
+- Is a tool that runs K3s clusters nodes as Docker containers.
+- Is one level above K3s.
+- You can create a K8s cluster with a simple command:
+	```bash
+	k3d cluster create mycluster --servers 1 --agents 2
+	```
+- Conceptually:
+	+ Your machine:
+		* Docker:
+			- container 1: K3s server
+			- container 2: K3s agent
+			- container 3: K3s agent
+		* kubectl: talks to the K3s Kubernetes API
+
+##### K8s in the cloud
+
+- In a production environment, the burden of maintaining a K8s cluster is often left to third parties.
+- A managed K8s as a service is often the best choice, as the additional work required in maintenance exceeds the benefits of a personal cluster.
+- In some rare cases, setting up and maintaining your own cluster is a reasonable option, for example:
+	+ You already have the hardware and/or want to stay independent from providers.
+	+ Regulations rule out all other choices.
+- Causes of increased costs can be:
+	+ Maintaining your own K8s cluster.
+	+ Running servers that are not in use.
+	+ Cluster of improper size.
+
+
+
 #### CLI & kubeconfig
 
 - kubectl
@@ -876,85 +922,89 @@ spec:
 
 - [Webinar: Kubernetes and Networks: Why is This So Dang Hard?](https://youtu.be/GgCA2USI5iQ?si=Pc7d4OfzgOQoFLRp)
 - Port forwarding: the port-forward is a command used in K8s to forward a local port to a pod. This allows you to easily access applications running inside your K8s cluster from your local machine. Port-forwarding is not meant for production use, but it's very useful for debugging and development purposes. `kubectl port-forward pod/<pod-name> <local port>:<port inside the pod>`.
-- [Service](https://kubernetes.io/docs/concepts/services-networking/service/):
-	+ Service resource will take care of serving the application to connections from both outside of the cluster and within.
-	+ Works in OSI's layer 4.
-  	+ Used to expose and access applications running within a Kubernetes cluster.
-  	+ Enables network communication between different parts of your application or between different applications.
-  	+ Provides a consistent and stable endpoint to interact with your application, regardless of how many pods or replicas are running, their IP addresses, or their current state. This is especially useful because of the ephemeral nature of pods.
-  	+ Types:
-		* [NodePort](https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport):
-			- Exposes the service on a static port on each node.
-  			- Used for external access to a service.
-  	  		- Not flexible and require you to assign a different port for every application.
-  	    	- Are not used in production but are helpful to know about.
-			- service.yaml :
-				```yaml
-				apiVersion: v1
-				kind: Service
-				metadata:
-					name: my-nodeport-service
-				spec:
-					type: NodePort
-					selector:
-					app: my-app # This is the app as declared in the deployment
-					ports:
-						- name: http
-							nodePort: 30080 # This is the port that is available outside. Value for nodePort can be between 30000-32767
-							protocol: TCP
-							port: 1234 # This is a port that is available to the cluster, in this case it can be ~ anything
-							targetPort: 3000 # This is the target port
-				```
-  		* ClusterIP:
-			- Exposes the Service by giving it an internal IP that'll only be accessible within the cluster.
-			- Useful for inter-pod communication.
-			- service.yaml:
-				```yaml
-				apiVersion: v1
-				kind: Service
-				metadata:
-				name: my-clusterip-svc
-				spec:
-				type: ClusterIP
+
+##### [Service](https://kubernetes.io/docs/concepts/services-networking/service/)
+
+- Service resource will take care of serving the application to connections from both outside of the cluster and within.
+- Works in OSI's layer 4.
+- Used to expose and access applications running within a Kubernetes cluster.
+- Enables network communication between different parts of your application or between different applications.
+- Provides a consistent and stable endpoint to interact with your application, regardless of how many pods or replicas are running, their IP addresses, or their current state. This is especially useful because of the ephemeral nature of pods.
+- Types:
+	+ [NodePort](https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport):
+		* Exposes the service on a static port on each node.
+		* Used for external access to a service.
+		* Not flexible and require you to assign a different port for every application.
+		* Are not used in production but are helpful to know about.
+		* service.yaml :
+			```yaml
+			apiVersion: v1
+			kind: Service
+			metadata:
+				name: my-nodeport-service
+			spec:
+				type: NodePort
 				selector:
-					app: my-app
+				app: my-app # This is the app as declared in the deployment
 				ports:
-				  	- port: 2345
+					- name: http
+						nodePort: 30080 # This is the port that is available outside. Value for nodePort can be between 30000-32767
 						protocol: TCP
-						targetPort: 3000
-				```
-		* LoadBalancer:
-			- Creates an external load balancer (probably a cloud one)
-			- Useful in cloud environments where load balancers can be provisioned automatically
-			- Exposes the Service externally
-			- Suitable for external-facing applications
-		* ExternalName:
-			- Maps a service to a DNS name
-			- Acts as CNAME record
-- [Ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/): Incoming Network Access resource.
-	+ Works in OSI's layer 7.
-  	+ Different type of resource from *Services*.
-	+ Similar to Nginx.
-	+ Supports SSL termination, virtual hosting, and path-based routing.
-	+ Ingresses are implemented by various different "controllers". This means that ingresses do not automatically work in a cluster, but give you the freedom of choosing which Ingress controller works for you the best. Popular options include: Traefik, Istio, and Nginx Ingress Controller, [more here](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/).
-	+ The following ingres.yaml routes all traffic to `my-svc` service:
-		```yaml
-		apiVersion: networking.k8s.io/v1
-		kind: Ingress
-		metadata:
-		name: my-ingress
-		spec:
-		rules:
-		- http:
-			paths:
-			- path: /
-				pathType: Prefix
-				backend:
-				service:
-					name: my-svc
-					port:
-						number: 2345
-		```
+						port: 1234 # This is a port that is available to the cluster, in this case it can be ~ anything
+						targetPort: 3000 # This is the target port
+			```
+	+ ClusterIP:
+		* Exposes the Service by giving it an internal IP that'll only be accessible within the cluster.
+		* Useful for inter-pod communication.
+		* service.yaml:
+			```yaml
+			apiVersion: v1
+			kind: Service
+			metadata:
+			name: my-clusterip-svc
+			spec:
+			type: ClusterIP
+			selector:
+				app: my-app
+			ports:
+				- port: 2345
+					protocol: TCP
+					targetPort: 3000
+			```
+	+ LoadBalancer:
+		* Creates an external load balancer (probably a cloud one).
+		* Useful in cloud environments where load balancers can be provisioned automatically.
+		* Exposes the Service externally
+		* Suitable for external-facing applications
+	+ ExternalName:
+		* Maps a service to a DNS name
+		* Acts as CNAME record
+
+##### [Ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/): Incoming Network Access resource
+
++ Works in OSI's layer 7.
++ Different type of resource from *Services*.
++ Similar to Nginx.
++ Supports SSL termination, virtual hosting, and path-based routing.
++ Ingresses are implemented by various different "controllers". This means that ingresses do not automatically work in a cluster, but give you the freedom of choosing which Ingress controller works for you the best. Popular options include: Traefik, Istio, and Nginx Ingress Controller, [more here](https://kubernetes.io/docs/concepts/services-networking/ingress-controllers/).
++ The following ingres.yaml routes all traffic to `my-svc` service:
+	```yaml
+	apiVersion: networking.k8s.io/v1
+	kind: Ingress
+	metadata:
+	name: my-ingress
+	spec:
+	rules:
+	- http:
+		paths:
+		- path: /
+			pathType: Prefix
+			backend:
+			service:
+				name: my-svc
+				port:
+					number: 2345
+	```
 
 
 #### Storage
