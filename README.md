@@ -670,14 +670,15 @@ public class Main {
 }
 ```
 
-## Microservices
-- Microservices are small, autonomous services that work together
-- One should use microservices as a means to obtain a desired outcome rather than for the sake of using a new technology
-- Microservices shouldn't be the default option. If you think a service architecture could help, try it with one of the modules from a very simple monolith typology and let it evolve from there
+## Kubernetes
 
-### Kubernetes
+### About Microservices
 
-#### Overview
+- Microservices are small, autonomous services that work together.
+- One should use microservices as a means to obtain a desired outcome rather than for the sake of using a new technology.
+- Microservices shouldn't be the default option. If you think a service architecture could help, try it with one of the modules from a very simple monolith typology and let it evolve from there.
+
+### Overview
 
 - What if you could just define "This process should have 6 copies using X amount of resources." and have the *2..N* computers working as a single entity to fulfill your request? That's just one thing Kubernetes makes possible.
 - In essence, Kubernetes is the sum of all the bash scripts and best practices that most system administrators would cobble together over time, presented as a single system behind a declarative set of APIs.
@@ -690,9 +691,9 @@ public class Main {
 - [Kubernetes comic](https://cloud.google.com/kubernetes-engine/kubernetes-comic/)
 - When managing Docker images, Kubernetes also makes applications portable. Once they are developed with a containerized architecture using Kubernetes, they can be deployed anywhere – public cloud, hybrid, on-prem – without any change to the underlying code.
 
-#### Architecture
+### Architecture
 
-##### Cluster
+#### Cluster
 
 - A cluster is a group of machines, nodes, that work together.
 - "Server nodes" are nodes with control-plane.
@@ -704,7 +705,7 @@ public class Main {
 
 ![cluster_with_k3d](images/with_k3d.webp "K8s cluster with k3d")
 
-##### Worker Nodes
+#### Worker Nodes
 
 - Contains running pods
 - Main processes:
@@ -714,7 +715,7 @@ public class Main {
 		* Runs pods and assigns resources to them
 	+ Kube proxy: Forwards requests from services to pods
 
-##### Master Nodes
+#### Master Nodes
 
 - Main processes:
 	+ API Server:
@@ -737,9 +738,9 @@ public class Main {
 	+ API Servers are load balanced
 	+ etcd storage is distributed
 
-##### K3s & K3d
+#### K3s & K3d
 
-###### K3s
+##### K3s
 
 - Is a lightweight fully functional K8s distribution, designed to be smaller, simpler, and easier to operate.
 - It packages and simplifies the traditional K8s setup so that one master node can may include:
@@ -753,7 +754,7 @@ public class Main {
 - Is particularly useful for edge computing, IoT, small servers/VMs, development environments, and resource-constrained systems.
 - Despite being lightweight, K3s isn't merely a K8s simulator. It is a real K8s distribution and can be used in production.
 
-###### K3d
+##### K3d
 
 - Is a tool that runs K3s clusters nodes as Docker containers.
 - Is one level above K3s.
@@ -769,7 +770,7 @@ public class Main {
 			- container 3: K3s agent
 		* kubectl: talks to the K3s Kubernetes API
 
-##### K8s in the cloud
+#### K8s in the cloud
 
 - In a production environment, the burden of maintaining a K8s cluster is often left to third parties.
 - A managed K8s as a service is often the best choice, as the additional work required in maintenance exceeds the benefits of a personal cluster.
@@ -783,7 +784,7 @@ public class Main {
 
 
 
-#### CLI & kubeconfig
+### CLI & kubeconfig
 
 - kubectl
 	+ The Kubernetes command-line tool.
@@ -796,7 +797,7 @@ public class Main {
 	+ By default, kubectl looks for a file named `config` in the `$HOME/.kube` directory.
 	+ [Documentation](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/).
 
-#### YAML Configuration file
+### YAML Configuration file
 
 - There declarative approach helps you to define how things should be rather than how they should change. This is more sustainable in the long run than the imperative approach and will let us keep our sanity.
 - Usually the `deployment.yaml` file resides inside a folder named `manifests`.
@@ -852,9 +853,9 @@ spec:
 	* Labels are `key: value` pairs that are attributed to k8s components
 	* Selectors are used to let a component know what other components should be picked up based on their labels
 
-#### API Extension
+### API Extension
 
-##### [Custom Resource](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/)
+#### [Custom Resource](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/)
 
 - Are instances of resource types added to K8s through API extensions. A resource is an endpoint in the K8s API that stores a collection of API objects of a certain kind; for example, the built-in pods resource contains a collection of Pod objects.
 - Is an extension of the K8s API that is not necessarily available in a default K8s installation.
@@ -863,9 +864,9 @@ spec:
 - Cluster admins can update custom resources independently of the cluster itself.
 - Once a custom resource is installed, users can create and access its objects using kubectl, just as they do for built-in resources like Pods.
 
-#### Workloads
+### Workloads
 
-##### [Pod](https://kubernetes.io/docs/concepts/workloads/pods/)
+#### [Pod](https://kubernetes.io/docs/concepts/workloads/pods/)
 
 - Is the smallest deployable unit that you can manage in K8s.
 - An abstraction around one or more containers with shared storage and network resources.
@@ -873,13 +874,13 @@ spec:
 
 ![pods](images/pods.png)
 
-##### [ReplicaSets](https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/)
+#### [ReplicaSets](https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/)
 
 - Used to tell how many replicas of a Pod you want.
 - It will delete or create Pods until the number of Pods you wanted are running.
 - ReplicaSets are automatically managed by Deployments.
 
-##### [Deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/)
+#### [Deployment](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/)
 
 - Manages a set of Pods (abstraction over pods).
 - Provides declarative updates for Pods and ReplicaSets.
@@ -887,7 +888,7 @@ spec:
 - A Deployment resource takes care of deployment. It's a way to tell Kubernetes what container you want, how they should be running and how many of them should be running.
 - Kubernetes take care of rolling out a new version of a deployment by using tags (e.g. hehe/image:tag). With the deployments, each time we update the image we can modify and apply the new deployment yaml.
 
-##### [StatefulSet](https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/)
+#### [StatefulSet](https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/)
 
 - Are similar to Deployments except they make sure that if a pod dies, the replacement is identical, with the same network identity and name.
 - If the pod is scaled, each copy will have its own storage. So, StatefulSets are for stateful applications, where the state is stored inside the app, not outside, such as in a database.
@@ -898,7 +899,7 @@ spec:
 	+ This will instruct K8s not to do proxying or load balancing, but instead allow direct access to the Pods.
 	+ All the replicas of the StatefulSet have a fixed domain name, if a pod dies, it is guaranteed to have the same name when it is scheduled again and it is attached to the same volume.
 
-##### [Job](https://kubernetes.io/docs/concepts/workloads/controllers/job/)
+#### [Job](https://kubernetes.io/docs/concepts/workloads/controllers/job/)
 
 - Is used to run workloads that are not continuous services, but are supposed to run from start to end.
 - Its status is saved so that it can be monitored after the execution has ended.
@@ -906,7 +907,32 @@ spec:
 - An example use case would be creating backups from a database.
 - [CronJob](https://kubernetes.io/docs/concepts/workloads/controllers/cron-jobs/): is very similar to Jobs but they run on schedule.
 
-##### About updating images
+#### [Horizontal Pod Autoscaling (HPA)](https://kubernetes.io/docs/concepts/workloads/autoscaling/horizontal-pod-autoscale/)
+
+- Updates a workload resource with the aim of automatically scaling capacity to match demand.
+- Automatically scales pods horizontally.
+- If the load decreases, and the number of Pods is above the configured minimum, the HorizontalPodAutoscaler instructs the workload resource to scale back down.
+- If the CPU utilization exceeds the target, then an additional replica is created until the maximum number of replicas is reached.
+- Horizontal pod autoscaling does not apply to objects that can't be scaled (for example: a DaemonSet).
+- It waits 5 minutes between scale-down attempts by default. This stabilization window prevents premature downscaling.
+```yaml
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: myapp-hpa
+spec:
+  maxUnavailable: 50% # This would ensure that no more than half of the pods can be unavailable
+  scaleTargetRef: # Defines the target deployment
+    apiVersion: apps/v1
+    kind: Deployment
+    name: myapp-dep
+  minReplicas: 1
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 50
+```
+- In addition to scaling to Horizontal scaling, you can also scale individual nodes with [VerticalPodAutoscaler](https://cloud.google.com/kubernetes-engine/docs/concepts/verticalpodautoscaler). These help ensure you are always using 100% of the resources you pay for.
+
+#### Updating images
 
 - k8S doesn't know if a Docker image is modified or wether a newer version is uploaded to the repository.
 - By default, Kubernetes won't pull the image if it already exists.
@@ -917,70 +943,86 @@ spec:
 	+ **`Always`:** every time the kubelet launches a container, the kubelet queries the container image registry to resolve the name to an image digest. If the kubelet has a container image with that exact digest cached locally, the kubelet uses its cached image; otherwise, the kubelet pulls the image with the resolved digest, and uses that image to launch the container.
 	+ **`Never`:** the kubelet does not try fetching the image. If the image is somehow already present locally, the kubelet attempts to start the container; otherwise, startup fails. See pre-pulled images for more details.
 - The caching semantics of the underlying image provider make even imagePullPolicy: Always efficient, as long as the registry is reliably accessible. Your container runtime can notice that the image layers already exist on the node so that they don't need to be downloaded again.
+- There are multiple update/deployment/release strategies that ensure good HA. Most famous are: Rolling update Canary release.
 
-#### Networking
+##### [Rolling update](https://kubernetes.io/docs/concepts/workloads/management/#updating-your-application-without-an-outage)
+
+- This is the default. K8s initiates it when you change the image.
+- You can run multiple copies of your app, and use a rollout to gradually shift the traffic to new healthy Pods.
+- Every pod is updated sequentially.
+- Eventually, all the running Pods would have the new software.
+- It enables the application to be available during the update. If we decide to push an image that does not work, the update will automatically stop.
+
+### Networking
 
 - [Webinar: Kubernetes and Networks: Why is This So Dang Hard?](https://youtu.be/GgCA2USI5iQ?si=Pc7d4OfzgOQoFLRp)
 - Port forwarding: the port-forward is a command used in K8s to forward a local port to a pod. This allows you to easily access applications running inside your K8s cluster from your local machine. Port-forwarding is not meant for production use, but it's very useful for debugging and development purposes. `kubectl port-forward pod/<pod-name> <local port>:<port inside the pod>`.
 
-##### [Service](https://kubernetes.io/docs/concepts/services-networking/service/)
+#### [Service](https://kubernetes.io/docs/concepts/services-networking/service/)
 
 - Service resource will take care of serving the application to connections from both outside of the cluster and within.
 - Works in OSI's layer 4.
 - Used to expose and access applications running within a Kubernetes cluster.
 - Enables network communication between different parts of your application or between different applications.
 - Provides a consistent and stable endpoint to interact with your application, regardless of how many pods or replicas are running, their IP addresses, or their current state. This is especially useful because of the ephemeral nature of pods.
-- Types:
-	+ [NodePort](https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport):
-		* Exposes the service on a static port on each node.
-		* Used for external access to a service.
-		* Not flexible and require you to assign a different port for every application.
-		* Are not used in production but are helpful to know about.
-		* service.yaml :
-			```yaml
-			apiVersion: v1
-			kind: Service
-			metadata:
-				name: my-nodeport-service
-			spec:
-				type: NodePort
-				selector:
-				app: my-app # This is the app as declared in the deployment
-				ports:
-					- name: http
-						nodePort: 30080 # This is the port that is available outside. Value for nodePort can be between 30000-32767
-						protocol: TCP
-						port: 1234 # This is a port that is available to the cluster, in this case it can be ~ anything
-						targetPort: 3000 # This is the target port
-			```
-	+ ClusterIP:
-		* Exposes the Service by giving it an internal IP that'll only be accessible within the cluster.
-		* Useful for inter-pod communication.
-		* service.yaml:
-			```yaml
-			apiVersion: v1
-			kind: Service
-			metadata:
-			name: my-clusterip-svc
-			spec:
-			type: ClusterIP
-			selector:
-				app: my-app
-			ports:
-				- port: 2345
-					protocol: TCP
-					targetPort: 3000
-			```
-	+ LoadBalancer:
-		* Creates an external load balancer (probably a cloud one).
-		* Useful in cloud environments where load balancers can be provisioned automatically.
-		* Exposes the Service externally
-		* Suitable for external-facing applications
-	+ ExternalName:
-		* Maps a service to a DNS name
-		* Acts as CNAME record
 
-##### [Ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/): Incoming Network Access resource
+##### [NodePort](https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport)
+
+- Exposes the service on a static port on each node.
+- Used for external access to a service.
+- Not flexible and require you to assign a different port for every application.
+- Are not used in production but are helpful to know about.
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+	name: my-nodeport-service
+spec:
+	type: NodePort
+	selector:
+	app: my-app # This is the app as declared in the deployment
+	ports:
+		- name: http
+			nodePort: 30080 # This is the port that is available outside. Value for nodePort can be between 30000-32767
+			protocol: TCP
+			port: 1234 # This is a port that is available to the cluster, in this case it can be ~ anything
+			targetPort: 3000 # This is the target port
+```
+
+##### ClusterIP
+
+- Exposes the Service by giving it an internal IP that'll only be accessible within the cluster.
+- Useful for inter-pod communication.
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+name: my-clusterip-svc
+spec:
+type: ClusterIP
+selector:
+	app: my-app
+ports:
+	- port: 2345
+		protocol: TCP
+		targetPort: 3000
+```
+
+##### LoadBalancer
+
+- Creates an external load balancer (probably a cloud one).
+- Useful in cloud environments where load balancers can be provisioned automatically.
+- Exposes the Service externally.
+- Suitable for external-facing applications.
+
+##### ExternalName
+
+- Maps a service to a DNS name.
+- Acts as CNAME record.
+
+#### [Ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/): Incoming Network Access resource
 
 + Works in OSI's layer 7.
 + Different type of resource from *Services*.
@@ -1006,17 +1048,73 @@ spec:
 					number: 2345
 	```
 
+#### [Gateway API](https://gateway-api.sigs.k8s.io/docs/introduction/)
 
-#### Storage
+- Is a next-generation solution for routing.
+- Is a set of resources (family of API Kinds) and standards that allow you to define how external traffic should be routed to services within your K8s cluster.
+- Builds on the ingress concept but offers more advanced features, making it easier to handle complex routing and traffic management scenarios.
+- Make services available by using an extensible, role-oriented, protocol-aware configuration mechanism.
 
-##### Challenges
+![Ingress vs Gateway API](images/ingress-vs-gateway.png)
+
+- GatewayClass:
+	+ Is a resource within the GatewayAPI that defines a type of Gateway.
+	+ Specifies the underlying infrastructure or controller that will be used to implement the Gateway.
+	+ Are defined by infrastructure providers (e.g., [GCP](https://cloud.google.com/kubernetes-engine/docs/concepts/gateway-api)).
+- Gateway:
+	+ Defines an instance of traffic handling infrastructure, such as cloud load balancer.
+	+ Defines where and how the load balancers listen for traffic to the cluster.
+	+ Specifies details like which IP addresses or hostnames to listen on, and which ports to use.
+	+ Is configured based on a GatewayClass that, amongst other things, selects the load balancer type to use.
+	+ Defines where and how the load balancers listen for traffic.
+	```yaml
+	apiVersion: gateway.networking.k8s.io/v1
+	kind: Gateway
+	metadata:
+	name: my-gateway
+	spec:
+	gatewayClassName: gke-l7-global-external-managed # This picks a GatewayClass following the Google recommendations
+	listeners:
+	- name: http # This says that our cluster accepts HTTP traffic to port 80
+		protocol: HTTP
+		port: 80
+		allowedRoutes:
+		kinds:
+		- kind: HTTPRoute
+	```
+- [HTTPRoute](https://gateway-api.sigs.k8s.io/guides/user-guides/http-routing/):
+	+ Defines HTTP-specific routing rules for mapping traffic from a Gateway listener to a representation of backend network endpoints. These endpoints are often represented as a Service.
+	+ Similar to the route definitions in an Ingress configuration.
+	```yaml
+	apiVersion: gateway.networking.k8s.io/v1beta1
+	kind: HTTPRoute
+	metadata:
+	name: my-route
+	spec:
+	parentRefs:
+	- name: my-gateway # This points to the Gateway resource where it belongs
+	rules:
+	- matches: # This says that requests to the path / are routed to service my-app-svc
+		- path:
+			type: PathPrefix
+			value: /
+		backendRefs:
+		- name: my-app-svc
+		port: 80
+	```
+- GRPCRoute:
+	+ Defines gRPC-specific rules for mapping traffic from a Gateway listener to a representation of backend network endpoints. These endpoints are often represented as a Service.
+
+### Storage
+
+#### Challenges
 
 - [Why Is Storage On Kubernetes So Hard?](https://softwareengineeringdaily.com/2019/01/11/why-is-storage-on-kubernetes-is-so-hard/)
 - Kubernetes does not support storing state. Almost all production applications are stateful, i.e. require some sort of external storage.
 - A Kubernetes architecture is very dynamic. Containers are being created and destroyed, depending on the load and on the specifications of the developers. Pods and containers can self-heal and replicate. They are, in essence, ephemeral.
 - A persistent storage solution cannot afford this dynamic behavior. **Persistent storage cannot be bound to the rules of being dynamically created and destroyed.**
 
-##### Storage in Native Kubernetes
+#### Storage in Native Kubernetes
 
 - Kubernetes natively offers some solutions to manage storage:
 	+ Ephemeral options:
@@ -1042,7 +1140,7 @@ spec:
 
 ![Broad overview of how external storage is handled](images/Kubernetes_PVC.png "How external storage is handled with native Kubernetes")
 
-###### Open-Source Projects
+##### Open-Source Projects
 
 - Ceph:
 	+ Is a storage cluster
@@ -1066,16 +1164,16 @@ spec:
 		* Scaling
 		* Rebalancing
 
-##### Volumes
+#### Volumes
 
-###### Volume plugins
+##### Volume plugins
 
 - Kubernetes communicate with storage using control plane interfaces.
 - The interfaces link Kubernetes with external storage.
 - The external storage solutions linked to Kubernetes are called Volume plugins.
 - Volume Plugins enable abstracting storage and grant storage portability.
 
-###### emptyDir volumes
+##### emptyDir volumes
 
 - The simple K8s volumes.
 - Their lifecycle is tied to a pod:
@@ -1084,13 +1182,13 @@ spec:
 	+ Moving the pod to another node will destroy the contents of the volume.
 - Can be used as a cache or to share data between containers within the same Pod.
 
-###### configMap and secret volumes
+##### configMap and secret volumes
 
 - Mounted files for configuration or sensitive values.
 - K8s manages their contents.
 - Don’t use them for writable application data.
 
-###### Persistent Volume (PV)
+##### Persistent Volume (PV)
 
 - A cluster-wide resource, that represents a piece of storage in the cluster that has been provisioned by the cluster administrator or is dynamically provisioned.
 - Can be backed by various types of storage such as local disk, NFS, cloud storage, etc.
@@ -1101,9 +1199,9 @@ spec:
 	+ Once bound, the PVC is "locked" and can only be used by one Pod (depending on the access mode specified). This ensures that the PV resource is exclusively used by the pod it's bound to.
 	+ If there is no suitable PV available, the PVC will stay in the "Pending" state, waiting for a suitable PV.
 
-#### Organizing a cluster
+### Organizing a cluster
 
-##### Namespaces
+#### Namespaces
 
 - [Namespaces](https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/) are used to keep resources separated.
 - Can be used to split the cluster into virtual clusters, one for each project.
@@ -1117,9 +1215,9 @@ spec:
 	```
 - You can define the namespace to use by adding it to the metadata section of the yaml files.
 - If you're using a specific namespace constantly, you can set it to be used by default with `kubectl config set-context --current --namespace=<name>`.
-- A community-created tool [kubectx](https://github.com/ahmetb/kubectx) makes changing the cluster and listing existing namespaces and changing the default easy.
+- A community-created tool [kubectx & kubens](https://github.com/ahmetb/kubectx) makes changing the cluster and listing existing namespaces and changing the default easy. Works also really well with [fzf](https://github.com/junegunn/fzf).
 
-##### Labels
+#### Labels
 
 - [Labels](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/) are used to separate an application from others inside a namespace and to group different resources together.
 - Are key-value pairs and they can be modified, added or removed at any time.
@@ -1155,7 +1253,7 @@ spec:
 		<my-app>-dep-321-cba   				1/1     Running   0          5m30s
 		```
 
-##### Selector
+#### Selector
 
 - Filters Kubernetes objects using labels.
 - Deployments use them to identify their Pods; Services use it to identify which Pods should receive traffic.
@@ -1165,7 +1263,7 @@ matchLabels:
 	app: project
 ```
 
-##### nodeSelector
+#### nodeSelector
 
 - Constrains a Pod to nodes that have matching node labels.
 - It is simple but limited: exact label matching only.
@@ -1175,7 +1273,7 @@ spec:
     disktype: ssd
 ```
 
-##### Node affinity
+#### Node affinity
 
 - A more powerful version of `nodeSelector`. It uses expressions and can be either mandatory or a preference.
 ```yaml
@@ -1207,7 +1305,7 @@ preferredDuringSchedulingIgnoredDuringExecution:
 	+ `preferred`: best effort.
 	+ `IgnoredDuringExecution`: Kubernetes does not evict an already-running Pod if node labels later change.
 
-##### Pod affinity
+#### Pod affinity
 
 - Places a Pod near other Pods with particular labels—often on the same node or in the same zone.
 ```yaml
@@ -1222,7 +1320,7 @@ affinity:
 - This requires the Pod to run in the same zone as a Pod labeled `app: database`.
 - Used when application components benefit from lower network latency or shared locality.
 
-##### Pod anti-affinity
+#### Pod anti-affinity
 
 - Keeps Pods away from matching Pods.
 - Commonly used for high availability.
@@ -1242,7 +1340,7 @@ affinity:
 	+ `topology.kubernetes.io/zone` → zone-level placement
 	+ a custom label → your own topology boundary
 
-##### Taint
+#### Taint
 
 - Is added to a node. It tells K8s: “do not schedule ordinary Pods here.”
 ```bash
@@ -1254,7 +1352,7 @@ kubectl taint nodes worker-gpu gpu=true:NoSchedule
 	+ `NoExecute`: evicts existing non-tolerating Pods and blocks future ones.
 - Typical use: reserve special nodes—GPU nodes, database nodes, critical-workload nodes—or keep Pods away from unhealthy nodes.
 
-##### Toleration
+#### Toleration
 
 - Is placed on a Pod. It lets that Pod schedule onto, or remain on, a node with a matching taint.
 ```yaml
@@ -1268,15 +1366,15 @@ spec:
 - That Pod may now run on nodes tainted `gpu=true:NoSchedule`.
 - A toleration is permission, not a guarantee. To ensure the Pod actually lands on a GPU node, combine it with a node label plus `nodeSelector` or node affinity.
 
-#### Monitoring
+### Monitoring
 
-##### [Observability](https://grafana.com/docs/grafana-cloud/learn-and-build/get-started/learn/what-is-observability/) (o11y)
+#### [Observability](https://grafana.com/docs/grafana-cloud/learn-and-build/get-started/learn/what-is-observability/) (o11y)
 
 - Is the process of making a system’s internal state more transparent.
 - Systems are made observable by the data they produce, which in turn helps you to determine if your infrastructure or application is healthy and functioning normally.
 - To understand the state of a system, we need time-series data, which includes a time stamp and a numeric value. The fundamental types data that are:
 
-###### [Metrics](https://kubernetes.io/docs/concepts/cluster-administration/system-metrics/)
+##### [Metrics](https://kubernetes.io/docs/concepts/cluster-administration/system-metrics/)
 
 - Are numeric measurements that are timestamped to indicate when they were collected. If you track an application or system, you might measure:
 	+ How many system resources are currently being used, such as memory or storage.
@@ -1309,7 +1407,7 @@ spec:
 	+ Hidden metrics: are no longer published for scraping, but are still available for use. A deprecated metric becomes a hidden metric after a period of time, based on its stability level. To use a hidden metric, you must enable it.
 	+ Deleted metrics: are no longer published and cannot be used.
 
-###### Logs:
+##### Logs:
 
 	+ Are time-stamped records of events that happen over time, such as error log files.
 	+ They help understand the behavior of infrastructure and applications as well as of users and business. For example, you can use logs to answer these questions:
@@ -1318,13 +1416,13 @@ spec:
 		* How many distinct users are visiting the site per day?
 	+ Often contain the root cause of a failure or issue. Logs must be aggregated, stored, and indexed.
 
-###### Traces:
+##### Traces:
 
 	* Provide end-to-end insight because it tracks a system request as it travels through multiple locations/components of a system.
 	* They are made up of spans. Spans record how long each part of a request takes.
 	* Traces make it easier to understand root causes and locate which parts of the system are slow or having other problems.
 
-##### Monitoring stack in K8s
+#### Monitoring stack in K8s
 
 - A typical monitoring stack has four components, each with a distinct role:
     + **Prometheus**: collects and stores various cluster metrics over time, enabling graphs, rates, and trends.
@@ -1336,65 +1434,207 @@ spec:
 
 
 
-#### Configuration
+### Configuration
 
-- [Secret](https://kubernetes.io/docs/concepts/configuration/secret/):
-	+ A way to store sensitive data (passwords, OAuth tokens, SSH keys, etc.) in K8s.
-	+ Secrets aren't accessible to anyone.
-	+ Stored in etcd.
-	+ Can be referenced in other config files.
-	```yaml
-	apiVersion: v1
-	kind: Secret
-	metadata:
-		name: my-secret
-	type: Opaque # Most basic secret type
-	data:
-		db-root-username: dXNlcm5hbWU= # Must be encoded in base64
-		db-root-password: cGFzc3dvcmQ=
+#### [Secret](https://kubernetes.io/docs/concepts/configuration/secret/)
+
+- A way to store sensitive data (passwords, OAuth tokens, SSH keys, etc.) in K8s.
+- Secrets aren't accessible to anyone.
+- Stored in etcd.
+- Can be referenced in other config files.
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+	name: my-secret
+type: Opaque # Most basic secret type
+data:
+	db-root-username: dXNlcm5hbWU= # Must be encoded in base64
+	db-root-password: cGFzc3dvcmQ=
+```
+- Encrypting secrets:
+	+ Cloud service providers may have their own solution, like Google Cloud Secret Manager or AWS Secrets Manager.
+	+ [SealedSecret](https://github.com/bitnami/sealed-secrets):
+		* Encrypts Secrets, so that they are safe to store - even inside a public repository.
+		* Can be decrypted only by the controller running in the target cluster and nobody else (not even the original author) is able to obtain the original Secret from the SealedSecret.
+	+ Other tools like [SOPS](https://github.com/getsops/sops) and [age](https://github.com/FiloSottile/age) can be used to encrypt the secret.yaml files.
+
+#### [ConfigMap](https://kubernetes.io/docs/concepts/configuration/configmap/)
+
+- Similar to secrets but used for non-sensitive data that doesn't have to be encoded and is not encrypted.
+- Stores everything in plain text and nothing is encrypted by default
+- E.g., let's say you have a videogame server that takes a configuration file `serverconfig.txt` which looks like this:
 	```
-	+ Encrypting secrets:
-		* Cloud service providers may have their own solution, like Google Cloud Secret Manager or AWS Secrets Manager.
-		* [SealedSecret](https://github.com/bitnami/sealed-secrets):
-			- Encrypts Secrets, so that they are safe to store - even inside a public repository.
-			- Can be decrypted only by the controller running in the target cluster and nobody else (not even the original author) is able to obtain the original Secret from the SealedSecret.
-		* Other tools like [SOPS](https://github.com/getsops/sops) and [age](https://github.com/FiloSottile/age) can be used to encrypt the secret.yaml files.
+	maxplayers=12
+	difficulty=2
+	```
+	+ Use a ConfigMap to contain the file:
 
-- [ConfigMap](https://kubernetes.io/docs/concepts/configuration/configmap/):
-	+ Similar to secrets but used for non-sensitive data that doesn't have to be encoded and is not encrypted.
-	+ Stores everything in plain text and nothing is encrypted by default
-	+ Example: let's say you have a videogame server that takes a configuration file `serverconfig.txt` which looks like this:
+		```yaml
+		apiVersion: v1
+		kind: ConfigMap
+		metadata:
+		name: example-configmap
+		data:
+		serverconfig.txt: |
+			maxplayers=12
+			difficulty=2
 		```
-		maxplayers=12
-		difficulty=2
-		```
-		* Use a ConfigMap to contain the file:
-
-			```yaml
-			apiVersion: v1
-			kind: ConfigMap
-			metadata:
-			name: example-configmap
-			data:
-			serverconfig.txt: |
-				maxplayers=12
-				difficulty=2
-			```
-		* The ConfigMap can be added to the container as a volume. By changing a value, like "maxplayers" in this case, and applying the ConfigMap the changes would be reflected in that volume.
-			```yaml
-			spec:
-			volumes:
+	+ The ConfigMap can be added to the container as a volume. By changing a value, like "maxplayers" in this case, and applying the ConfigMap the changes would be reflected in that volume.
+		```yaml
+		spec:
+		volumes:
+			- name: game-config
+			configMap:
+				name: example-configmap
+		containers:
+			- name: game-server
+			image: example/game-server
+			volumeMounts:
 				- name: game-config
-				configMap:
-					name: example-configmap
-			containers:
-				- name: game-server
-				image: example/game-server
-				volumeMounts:
-					- name: game-config
-					mountPath: /etc/game-config
-					readOnly: true
-			```
+				mountPath: /etc/game-config
+				readOnly: true
+		```
+
+#### Health Checks
+
+- Are a simple way to let the system know if an instance of your app is working or not.
+- By default, K8s will start to send traffic to a pod when all the containers inside the pods start, and will restart containers when they crash.
+- You can create your custom health checks, there are two types.
+
+##### Readiness Probe
+
+- Is designed to let K8s know when your app is ready to serve traffic.
+- K8s will make sure that the readiness probe passes before allowing the service to send traffic to the pod.
+- If a readiness probe starts to fail, K8s will stop sending traffic to the pod until it passes again.
+- Are useful for cases where your app takes a some time to warm up and start, so you don't want to start sending traffic to the pod as soon as its processes start.
+
+##### Liveness Probe
+
+- It lets K8s know if your app is alive or dead. If your app is alive, then K8s will leave it alone.
+- If your app is dead, then K8s will remove the pod and start a new one to replace it.
+- Let's imagine a scenario where your app takes a minute to warm up and start.
+- Are useful for cases where your app has some bug that causes it to hang indefinitely and stop serving requests:
+	+ Because the processes continue to run, by default, K8s will think that everything is fine and continue to send requests to the broken pod.
+	+ By using a liveness probe, K8s will detect the app is no longer serving requests, and will restart the offending pod.
+
+##### Types of Probes
+
+- There are 3 types of probes, each can be used for readiness and liveness checks.
+- HTTP probe:
+	+ Most common.
+	+ Even if your app isn't an HTTP server, you can usually create a lightweight HTTP server inside your app to respond to the liveness probe.
+	+ K8s will ping a path. If it gets a response in 200 or 300 range, it will mark it as healthy. Otherwise, it'll be marked as unhealthy.
+	```yaml
+	spec:
+	containers:
+	- name: liveness
+		livenessProbe:
+		httpGet:
+			path: /healthz
+			port: 8080
+	```
+- Command probe:
+	+ K8s will run a command inside your container. If the command returns with an exit code zero, then the container will be marked healthy. Otherwise, it will be marked unhealthy.
+	+ Useful when you can't or don't want to run an HTTP server, but you can run a command that can check if your app is healthy or not.
+	```yaml
+	spec:
+	containers:
+	- name: liveness
+		livenessProbe:
+		exec:
+			command:
+			- myprogram
+	```
+- TCP probe:
+	+ K8s will try to establish a TCP connection on the specified port. If it can establish a connection, the container is considered healthy. If it can't, it's considered a failure.
+	+ Useful if you have a scenario where the HTTP probe or the command probe don't work well (e.g., gRPC or FTP service).
+	```yaml
+	spec:
+	containers:
+	- name: liveness
+		livenessProbe:
+		tcpSocket:
+			port: 8080
+	```
+
+##### Configuring Probes
+
+- You can specify how often probes should run, what the success and failure thresholds are, and how long to wait for responses.
+	+ initialDelaySeconds: very important for liveness probes, you have to make sure the probe doesn't start until your app is ready, otherwise, the app will constantly restart in a loop.
+	+ periodSeconds: how often to test.
+	+ timeoutSeconds
+	+ successThreshold
+	+ failureThreshold
+- However, there is one very important setting that you need to configure when using liveness probes. This is the initial delay second setting.
+
+### [Resource Management](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/)
+
+#### Requests and limits
+
+- Requests:
+	+ Are what the container is guaranteed to get.
+	+ If a container requests a resource, K8s will only schedule it on a node they can give it that resource.
+- Limits:
+	+ Make sure a container never goes above a value.
+	+ The container is only allowed to go up to limit and then its restricted.
+	+ So there are two types of resources-- CPU and memory.
++ For CPI, it's usually a best practice to keep the CPU request at one or below, and then run more replicas to scale it out (Unless your app is specifically designed to take advantage of multiple cores).
+- CPU is a compressible resource, meaning if your app starts hitting your CPU limits, K8s will start to throttle your container, giving your app potentially worse performance. However, it won't be terminated.
+- Memory is not compressible. Because there's no way to throttle memory usage, if a container goes past its memory limit, it will be terminated.
+- You cannot set requests that are larger than the resources provided by your biggest node.
+
+#### ResourceQuota & LimitRange
+
+- After creating a namespace, you can lock down limits using quotas.
+- A common pattern is to put no quota on production and put very strict quotas on the development namespace.
+
+```yaml
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: myenv-rq
+spec:
+  hard:
+    requests.cpu: 500m # The maximum combined CPU requests that all containers in the namespace can have.
+    requests.memory: 100Mib # The maximum combined memory requests that all containers in the namespace can have.
+    limits.cpu: 700m # The maximum combined CPU limits that all the containers in the namespace can have.
+    limits.memory: 500Mib # The maximum combined memory limits that all the containers in the namespace can have.
+```
+
+- Unlike a quota, which looks at the whole namespace, a limit range enforces itself on individual containers.
+
+```yaml
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: demo
+spec:
+  limits:
+- default: # The default limits for a container in the pod. Any containers that don't explicitly set these values themselves will get assigned the default values.
+    cpu: 600m
+    memory: 100Mib
+  defaultRequest: # The default requests for a container in a pod.
+    cpu: 100m
+    memory: 50Mib
+  max: # The maximum limits that a container in a pod can set. The default section and the limits in a container cannot be set higher than this.
+    cpu: 1000m
+    memory: 200Mib
+  min: # The minimum requests of a container and a pod can set. The default requests and requests cannot be lower than this.
+    cpu: 10m
+    memory: 10Mib
+  type: Container
+```
+
+#### Overcommitment
+
+- Since limits can be higher than resources, in some scenarios a node can actually run out of resources. We call this an overcommitted state.
+- When a node is in an overcommitted state, K8s will start killing pods, otherwise, the whole system will crash:
+	+ K8s will look for pods that are using more resources than they requested.
+	+ If your containers have no requests at all, then by default they're using more than they requested, because they requested nothing. So these are prime candidates for termination.
+	+ Another prime candidate are containers that have gone over their requests but are still under the limit.
+
+### Management & CD
 
 #### [Helm](https://helm.sh/)
 
@@ -1450,7 +1690,13 @@ spec:
 			httpHeaderValue1: "1"
 	```
 
-#### Best practices
+#### [Kustomize](https://itnext.io/kubernetes-kustomize-cheat-sheet-8e2d31b74d8f)
+
+- Is a command-line tool supporting template-free, structured customization of declarative configuration targeted to K8s-style objects.
+- Has some understanding of API resources, K8s concepts like names, labels, namespaces, etc., and the semantics of resource patching.
+- Is baked into kubectl.
+
+### Best practices
 
 - When updating anything in Kubernetes the usage of delete is actually an anti-pattern and you should use it only as the last option. As long as you don't delete the resource Kubernetes will do a rolling update, ensuring minimum (or none) downtime for the application. On the topic of anti-patterns: you should also always avoid doing anything imperatively! If your files don't tell Kubernetes and your team what the state should be and instead you run commands that edit the state you are just lowering the bus factor for your cluster and application.
 - Often you (the maintainer or developer) don't have to do anything in case something goes wrong with a pod or a container. Sometimes you need to interfere, or you might have problems with your own configuration.
