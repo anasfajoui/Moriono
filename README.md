@@ -670,6 +670,37 @@ public class Main {
 }
 ```
 
+## Messaging Systems
+
+### Overview
+
+- Are a method for communication between services.
+- They have a wide range of use cases and are helpful when you want to scale applications.
+- A number of HTTP REST API services that want to communicate with each other require that the services know each other’s addresses. Meanwhile, when using message queues, messages are sent to and received from the message queue.
+
+### NATS
+
+- Is an open source messaging system.
+- Applications connect to a NATS server and exchange messages by subject, without knowing each other's network addresses.
+- Provides a layer between application components, allowing them to communicate without being directly connected or even aware of each other's existence.
+- Applications communicate by sending and receiving messages.
+	+ Messages are addressed and identified by [subjects](https://docs.nats.io/nats-concepts/subjects).
+	+ The sender publishes the message with a subject.
+	+ The receivers subscribe to subjects to get the published messages.
+	+ In the default publish-subscribe model of operation, all the subscribers of the subject receive the published message. It is also possible to use a queue model, where each published message is given just to one subscriber.
+- Publishers send messages to a subject, and subscribers listen to it, NATS provides different message delivery semantics or modes of operation.
+	1. *at most once:* the basic functionality provided by Core NATS
+		* A subscriber receives a message zero or one time. Core NATS doesn’t store messages for later delivery.
+		* E.g., if you publish a message while the subscriber is offline. When it reconnects, it won’t receive that message.
+	2. *JetStream: at least once*
+		* JetStream stores messages in a configured stream, so a subscriber can receive them later. The subscriber sends an ACK to confirm it handled a message. If that ACK doesn’t arrive in time, JetStream can deliver the message again.
+		* E.g., the subscriber handles a message, but its ACK gets lost. JetStream retries, so the subscriber may handle the same order twice. Reliability comes with the possibility of duplicates, subject to retention and retry settings.
+	3. *JetStream: exactly once* provides mechanisms to avoid duplicates
+		* Unique message IDs let it recognize repeated publications within a deduplication window.
+		* Double acknowledgments let subscribers confirm that their ACK reached the server.
+		* These require appropriate configuration and client behavior.
+		* This doesn’t automatically make your application’s actions happen exactly once. If your application updates a database and crashes before acknowledging the message, a retry can repeat that update. Application logic should therefore tolerate repeats—for example, by recording processed order IDs.
+
 ## Kubernetes
 
 ### About Microservices
@@ -1517,6 +1548,7 @@ data:
 - Are useful for cases where your app has some bug that causes it to hang indefinitely and stop serving requests:
 	+ Because the processes continue to run, by default, K8s will think that everything is fine and continue to send requests to the broken pod.
 	+ By using a liveness probe, K8s will detect the app is no longer serving requests, and will restart the offending pod.
+- If your app is slow to start, a [StartupProbe](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#define-startup-probes) can be used to delay the liveness probe and prevent it from firing prematurely.
 
 ##### Types of Probes
 
@@ -1695,6 +1727,296 @@ spec:
 - Is a command-line tool supporting template-free, structured customization of declarative configuration targeted to K8s-style objects.
 - Has some understanding of API resources, K8s concepts like names, labels, namespaces, etc., and the semantics of resource patching.
 - Is baked into kubectl.
+
+#### Argo Rollouts
+
+- Is a progressive delivery controller and set of CRDs which provide additional update strategies like blue green and canary to K8s.
+- It does this by integrating with services meshes and ingress controllers.
+- During an update Argo Rollouts will:
+	+ Query metric providers.
+	+ Perform analysis on the update.
+	+ Based on the metrics it'll be able to either automatically promote the rollout to the new version or roll back to the previous stable version.
+
+##### [Canary release](https://martinfowler.com/bliki/CanaryRelease.html)
+
+![Canary deployment](images/canary-deployment.png)
+
+- A release strategy in which we introduce a subset of the users to a new version of the application. When the confidence in the new release grows, the number of users in the new version can be increased until the old version is no longer used.
+- At the moment, Canary is not a strategy for deployments that K8s would provide out of the box. This may be due to the ambiguity of the methods for canary release.
+- Argo Rollout introduces a set of CRD to your cluster:
+	+ Rollout
+		* Is intended to be a replacement for a deployment.
+		* Has an identical spec but with added blue-green and canary strategies.
+		* It manages your networking and service mesh related resources in order to shape the traffic according to your rollout steps then automates the promotion of your rollout based on analysis.
+
+		```yaml
+		apiVersion: argoproj.io/v1alpha1
+		kind: Rollout
+		metadata:
+		name: my-app-dep
+		spec:
+		replicas: 4
+		selector:
+			matchLabels:
+			app: my-app
+		strategy:
+			canary: # This tells the rollout to move 25% of the pods to a new version, then wait for 30 seconds, move to 50% of pods, and then wait for 30 seconds until every pod is updated.
+			steps:
+			- setWeight: 25
+			- pause:
+				duration: 30s
+			- setWeight: 50
+			- pause:
+				duration: 30s
+			- analysis:
+				templates:
+				- templateName: restart-rate
+		template:
+			metadata:
+			labels:
+				app: my-app
+			spec:
+			containers:
+				- name: my-app
+				image: my/image:v1
+		```
+
+	+ Analysis: a custom resource which lets you describe how to perform analysis it lets you define what metrics to measure and when and how to interpret those measurements as an update is happening analysis continuously queries metric providers to measure the success of an update.
+
+	```yaml
+	apiVersion: argoproj.io/v1alpha1
+	kind: AnalysisTemplate
+	metadata:
+	name: restart-rate
+	spec:
+	metrics:
+	- name: restart-rate
+		initialDelay: 2m
+		successCondition: result < 2
+		provider:
+		prometheus:
+			address: http://kube-prometheus-stack-xxxx-prometheus.prometheus.svc.cluster.local:9090 # DNS name for Prometheus
+			query: | # If the number of overall restarts over the last 2 minutes is higher than two, it will fail the analysis
+			scalar(
+				sum(kube_pod_container_status_restarts_total{namespace="default", container="flaky-update"}) -
+				sum(kube_pod_container_status_restarts_total{namespace="default", container="flaky-update"} offset 2m)
+			)
+	```
+
+##### [BlueGreen](https://argoproj.github.io/argo-rollouts/features/bluegreen/)
+
+- A new version is run side by side to the old one, but traffic is switched between the two at a certain point, such as after running update scripts or after your QA team has approved the new version.
+- It Allows users to reduce the amount of time multiple versions are running at the same time.
+- The rollout controller will modify a Service resource during the BlueGreenUpdate strategy.
+- The Rollout spec has users specify a reference to active service and optionally a preview service in the same namespace:
+	+ The active Service is used to send regular application traffic to the old version.
+	+ The preview Service is used to funnel traffic to the new version.
++ The rollout controller ensures proper traffic routing by injecting a unique hash of the ReplicaSet to these services' selectors. This allows the rollout to define an active and preview stack and a process to migrate replica sets from the preview to the active.
+- When there is a change to the `.spec.template` field of a rollout:
+	+ The controller will create the new ReplicaSet.
+	+ If the active service is not sending traffic to a ReplicaSet, the controller will immediately start sending traffic to the ReplicaSet. Otherwise, the active service will point at the old ReplicaSet while the ReplicaSet becomes available. 
+	+ Once the new ReplicaSet becomes available, the controller will modify the active service to point at the new ReplicaSet. After waiting some time configured by the `.spec.strategy.blueGreen.scaleDownDelaySeconds`, the controller will scale down the old ReplicaSet.
+
+#### GitOps
+
+##### Overview
+
+- Is a set of practices for managing infrastructure and application configurations to expand upon and improve the application lifecycle.
+- Uses Git repositories as a single source of truth to deliver IaC. 
+- Requires a declarative description of the desired state of the system.
+- By using declarative tools, all configuration files and source code can be version controlled in Git.
+- All changes to the code are tracked, making updates easy while also providing version control should a rollback be needed.
+
+##### Push deployment
+
+- A simple CI/CD push deployment pipeline typically includes the following steps:
+	1. Developer pushes modified code to a repository, such as GitHub.
+	2. This triggers a CI/CD service, like GitHub Actions, to start running.
+	3. The CI/CD service runs tests, builds an image, pushes the image to a registry, and deploys the new image, for example, to K8s.
+- Everything is pushed forward by the previous step in a push deployment.
+- There are some challenges with the push approach. E.g., if we have a K8s cluster that is unavailable for external connections. In those cases having CI/CD push the update to the cluster is not possible.
+
+##### Pull deployment
+
+- The setup is reversed compared to push deployment:
+	+ We can have the cluster, running anywhere, pull the new image and deploy it automatically.
+	+ The new image will still be tested and built by the CI/CD. We simply relieve the CI/CD of the burden of deployment and move it to another system that is doing the pulling.
+
+##### ArgoCD
+
+###### Overview
+
+- The leading declarative, GitOps continuous delivery tool for GitOps in K8s.
+[image]
+- Follows the GitOps pattern of using Git repositories as the source of truth for defining the desired application state. K8s manifests can be specified in several ways:
+    + kustomize applications
+    + helm charts
+    + jsonnet files
+    + Plain directory of YAML/json manifests
+    + Any custom config management tool configured as a config management plugin
+- Automates the deployment of the desired application states in the specified target environments.
+- Application deployments can track updates to branches, tags, or be pinned to a specific version of manifests at a Git commit.
+- A simple pull deployment workflow would look like:
+    1. Developer runs git push with modified code or configurations.
+    2. CI/CD service builds and pushes new image and commits edit to the desired branch.
+    3. ArgoCD will take the state described in the release branch and set it as the state of our cluster.
+- Installing ArgoCD is as simple as:
+	```sh
+	kubectl create namespace argocd
+	kubectl apply -n argocd --server-side --force-conflicts -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+	```
+
+###### Ops
+
+- To define applications, you can use:
+	+ The ArgoCD UI
+	+ [Argo CLI](https://argo-cd.readthedocs.io/en/stable/getting_started/#creating-apps-via-cli)
+	+ [Declarative](https://argo-cd.readthedocs.io/en/stable/operator-manual/declarative-setup/#declarative-setup)
+- It is recommended to use the declarative approach and do the definition with [Application](https://argo-cd.readthedocs.io/en/stable/operator-manual/declarative-setup/#applications) CRD:
+	+ It is a K8s resource object representing a deployed application instance in an environment.
+	+ The Application object defines both:
+		* The source (the Git repository of the project).
+		+ The destination in the cluster where the app will be deployed.
+- A simple app definition in the file application.yaml looks something like this:
+	```yaml
+	apiVersion: argoproj.io/v1alpha1
+	kind: Application
+	metadata:
+	name: myapp
+	namespace: argocd
+	spec:
+	project: default
+	source:
+		repoURL: https://github.com/anasfajoui/myapp
+		path: overlays/prod
+		targetRevision: HEAD
+	destination:
+		server: https://kubernetes.default.svc
+		namespace: default
+	syncPolicy:
+		automated:
+		prune: true
+		selfHeal: true
+	```
+- The application is then set up to ArgoCD by applying the definition:
+	```sh
+	kubectl apply -n argocd -f application.yaml
+	```
+
+##### Advantages
+
+- Better security
+	+ Nobody needs access to the cluster, not even CI/CD services.
+	+ No need to share access to the cluster with collaborators; they will commit changes like everyone else.
+- Better transparency
+	+ Everything is declared in the GitHub repository.
+	+ When a new person joins the team, they can check the repository; no need to pass ancient knowledge or hidden techniques as there are none.
+- Better traceability
+	+ All changes to the cluster are version controlled.
+	+ You will know exactly what was the state of the cluster and how it was changed and by whom.
+- Risk reduction
+	+ If something breaks, simply revert the cluster to a working commit. `git revert` and the whole cluster is in a previous state.
+- Portability
+	+ Want to change to a new provider? Spin up a cluster and point it to the same repository - your cluster is now there.
+
+##### Multiple environments
+
+- In real world apps, typically there would be many environments (e.g., production, staging and testing... etc.).
+- The straightforward way of defining the environments contains lots of copy-paste (which is not recommended).
+- kustomize encourages defining the multiple environments as specific overlays (where the differing parts are defined) on a common base.
+- A simple example of directory structure would look like the following:
+	```
+	.
+	├── base
+	│   ├── deployment.yaml
+	│   └── kustomization.yaml
+	└── overlays
+		├── prod
+		│   ├── deployment.yaml
+		│   └── kustomization.yaml
+		└── staging
+			└── kustomization.yaml
+	```
+	+ The `base/deployment.yaml` would be just a regular deployment yaml file:
+		```yaml
+		apiVersion: apps/v1
+		kind: Deployment
+		metadata:
+		name: myapp-dep
+		spec:
+		replicas: 1
+		selector:
+			matchLabels:
+			app: myapp
+		template:
+			metadata:
+			labels:
+				app: myapp
+			spec:
+			containers:
+				- name: myapp
+				image: PROJECT/IMAGE
+		```
+	+ The `base/kustomization.yaml` is simple:
+		```yaml
+		apiVersion: kustomize.config.k8s.io/v1beta1
+		kind: Kustomization
+
+		resources:
+		- deployment.yaml
+		```
+	+ Each environment refines the base by changing what is specific to that environment:
+		* E.g., the production environment can refine the base by changing the replica count to 3; The `overlays/prod/deployment.yaml` would look like this (Only parts that are different are defined):
+			```yaml
+			apiVersion: apps/v1
+			kind: Deployment
+			metadata:
+			name: dep
+			spec:
+			replicas: 3
+			```
+		* The `overlays/prod/kustomization.yaml` looks like following:
+			```yaml
+			apiVersion: kustomize.config.k8s.io/v1beta1
+			kind: Kustomization
+
+			resources: # Refers to the base.
+			- ./../../base
+			patches: # Patches (also called overlays) add or override fields on resources. So this would patch the base with the deployment that sets the number of replicas to 3.
+			- path: deployment.yaml
+
+			namePrefix: prod- # Adds prefix to resources' name
+
+			images:
+			- name: PROJECT/IMAGE
+				newName: nginx:1.31-alpine
+			```
+		* The `overlays/staging/kustomization.yaml` can just sets the image:
+			```yaml
+			apiVersion: kustomize.config.k8s.io/v1beta1
+			kind: Kustomization
+
+			resources:
+			- ./../../base
+			namePrefix: staging-
+
+			images:
+			- name: PROJECT/IMAGE
+				newName: nginx:1.31-bookworm
+			```
+	+ Everything can then be deployed using ArgoCD for example by pointing to the corresponding overlay directories.
+
+##### [Separating Config Vs. Source Code Repositories](https://argo-cd.readthedocs.io/en/stable/user-guide/best_practices/#separating-config-vs-source-code-repositories)
+
+Using a separate Git repository to hold your Kubernetes manifests, keeping the config separate from your application source code, is highly recommended for the following reasons:
+
+1. It provides a clean separation of application code vs. application config:
+	+ There will be times when you wish to modify just the manifests without triggering an entire CI build.
+	+ E.g., you likely do not want to trigger a build if you simply wish to bump the number of replicas in a Deployment spec.
+2. Cleaner audit log: a repo which only holds configuration will have a much cleaner Git history of what changes were made, without the noise coming from check-ins due to normal development activity.
+3. Your application may comprise services built from multiple Git repositories, but is deployed as a single unit: Oftentimes, microservices applications comprise services with different versioning schemes, and release cycles (e.g. ELK, Kafka + ZooKeeper). It may not make sense to store the manifests in one of the source code repositories of a single component.
+4. Separation of access: The developers who are developing the application, may not necessarily be the same people who can/should push to production environments, either intentionally or unintentionally. By having separate repos, commit access can be given to the source code repo, and not the application config repo.
+5. If you are automating your CI pipeline, pushing manifest changes to the same Git repository can trigger an infinite loop of build jobs and Git commit triggers. Having a separate repo to push config changes to, prevents this from happening.
 
 ### Best practices
 
