@@ -736,38 +736,91 @@ public class Main {
 
 ![cluster_with_k3d](images/with_k3d.webp "K8s cluster with k3d")
 
-#### Worker Nodes
+#### Nodes
 
-- Contains running pods
+##### Worker Nodes
+
+- Contains running pods.
 - Main processes:
-	+ Container runtime (Docker)
+	+ Container runtime (Docker).
 	+ Kubelet:
-		* The interface between the container runtime and the node itself
-		* Runs pods and assigns resources to them
-	+ Kube proxy: Forwards requests from services to pods
+		* The interface between the container runtime and the node itself.
+		* Runs pods and assigns resources to them.
+		* Makes sure containers are running in a Pod.
+	+ Kube proxy:
+		* Network proxy and maintainer of the network rules.
+		* Enables connections outside and inside the cluster.
+		* Forwards requests from services to pods.
 
-#### Master Nodes
+##### Master Nodes
 
+- Also have a container runtime, kublet, and kube proxy.
 - Main processes:
 	+ API Server:
-		* Takes queries and updates cluster respectively
-		* The entrypoint with which you talk to your K8s cluster
-		* You can communicate with it via UI, API, or CLI (kubectl)
+		* Takes queries and updates cluster respectively.
+		* The entrypoint with which you talk to your K8s cluster.
+		* You can communicate with it via UI, API, or CLI (kubectl).
 	+ Scheduler:
-		* Decides pods to be deployed on what worker node depending on CPU and memory available
-		* Uses the Kubelet to actually start the pod
+		* Decides pods to be deployed on what worker node depending on CPU and memory available.
+		* Uses the Kubelet to actually start the pod.
 	+ Controller manager:
-		* Detects state changes of the cluster
-		* If it detects pod failure, it will send a request to the Scheduler to start a new pod
+		* Detects state changes of the cluster.
+		* If it detects pod failure, it will send a request to the Scheduler to start a new pod.
 	+ etcd:
-		* Key value store
-		* All changes are saved in it
-		* Contains all data and information of the state of the cluster
-		* Application data is NOT stored in etcd
-	
+		* Key value store.
+		* All changes are saved in it.
+		* Contains all data and information of the state of the cluster.
+		* Application data is NOT stored in etcd.
 - Master Nodes are also replicated:
-	+ API Servers are load balanced
-	+ etcd storage is distributed
+	+ API Servers are load balanced.
+	+ etcd storage is distributed.
+
+![Kubernetes components](images/k8s-components.png)
+
+#### Addons
+
+- Extend a cluster with capabilities beyond its core workload orchestration.
+- Usually run inside the cluster as Deployments or DaemonSets and use K8s resources to configure their behavior.
+- Examples:
+	+ CoreDNS: lets workloads find Services by DNS name.
+	+ Metrics Server: supplies resource metrics for `kubectl top` and CPU/memory-based autoscaling.
+	+ Ingress controller: routes external HTTP/HTTPS traffic to Services.
+- “Add-on” doesn’t necessarily mean optional: DNS and networking components are essential for most usable clusters.
+- You can view which resources the addons have created in the kube-system namespace with:
+	```sh
+	kubectl -n kube-system get all
+	```
+
+#### [K8s Control Plane](https://kubernetes.io/docs/concepts/overview/components/#control-plane-components)
+
+- Manages the overall state of the cluster.
+- Is the primary orchestrating component that ensures the cluster's desired state matches its actual state.
+- Makes global decisions about the cluster (such as scheduling), as well as detecting and responding to cluster events (such as starting up a new pod when a replica's field of a deployment is unsatisfied).
+- Consists of:
+	+ etcd: a key-value storage that K8s uses to save all cluster data.
+	+ kube-scheduler: decides on which node a Pod should be run on.
+	+ kube-controller-manager: responsible for and runs all of the controllers.
+	+ kube-apiserver: this exposes the K8s Control Plane through an API.
+- There's also cloud-controller-manager that lets you link your cluster into a cloud provider's API.
+
+#### [Controllers](https://kubernetes.io/docs/concepts/architecture/controller/)
+
+- When you set the temperature in a thermostat, you're telling the thermostat about your desired state. The actual room temperature is the current state. The thermostat acts to bring the current state closer to the desired state, by turning equipment on or off.
+- In K8s, controllers are control loops that watch the state of your cluster, then make or request changes where needed.
+- Each controller tries to move the current cluster state closer to the desired state.
+- There are a number of controllers for different responsibilities.
+
+#### K8s in the cloud
+
+- In a production environment, the burden of maintaining a K8s cluster is often left to third parties.
+- A managed K8s as a service is often the best choice, as the additional work required in maintenance exceeds the benefits of a personal cluster.
+- In some rare cases, setting up and maintaining your own cluster is a reasonable option, for example:
+	+ You already have the hardware and/or want to stay independent from providers.
+	+ Regulations rule out all other choices.
+- Causes of increased costs can be:
+	+ Maintaining your own K8s cluster.
+	+ Running servers that are not in use.
+	+ Cluster of improper size.
 
 #### K3s & K3d
 
@@ -800,20 +853,6 @@ public class Main {
 			- container 2: K3s agent
 			- container 3: K3s agent
 		* kubectl: talks to the K3s Kubernetes API
-
-#### K8s in the cloud
-
-- In a production environment, the burden of maintaining a K8s cluster is often left to third parties.
-- A managed K8s as a service is often the best choice, as the additional work required in maintenance exceeds the benefits of a personal cluster.
-- In some rare cases, setting up and maintaining your own cluster is a reasonable option, for example:
-	+ You already have the hardware and/or want to stay independent from providers.
-	+ Regulations rule out all other choices.
-- Causes of increased costs can be:
-	+ Maintaining your own K8s cluster.
-	+ Running servers that are not in use.
-	+ Cluster of improper size.
-
-
 
 ### CLI & kubeconfig
 
@@ -894,6 +933,70 @@ spec:
 - They can appear and disappear in a running cluster through dynamic registration.
 - Cluster admins can update custom resources independently of the cluster itself.
 - Once a custom resource is installed, users can create and access its objects using kubectl, just as they do for built-in resources like Pods.
+- CRD Example:
+	+ A resource called "Countdown" that has *length* and *delay* between executions.
+	+ The execution is what happens each time the *delay* has elapsed; this would be left up to a Docker image.
+	```yaml
+	apiVersion: apiextensions.k8s.io/v1
+	kind: CustomResourceDefinition
+	metadata:
+	  name: countdowns.stable.dwk # name must match the spec fields below, and be in the form: <plural>.<group>
+	spec:
+	  group: stable.dwk # group name to use for REST API: /apis/<group>/<version>
+	  scope: Namespaced # either Namespaced or Cluster
+	  names:
+	    kind: Countdown # the CamelCased singular type, resource manifests use this
+	    plural: countdowns # plural name to be used in the URL: /apis/<group>/<version>/<plural>
+	    singular: countdown # singular name to be used as an alias on the CLI and for display
+	    shortNames: # shortNames allow shorter string to match your resource on the CLI
+	      - cd
+	  versions: # list of versions supported by this CustomResourceDefinition
+	    - name: v1
+	      served: true # each version can be enabled or disabled by Served flag
+	      storage: true # one and only one version must be marked as the storage version
+	      schema:
+	        openAPIV3Schema:
+	          type: object
+	          properties:
+	            spec:
+	              type: object
+	              properties:
+	                length:
+	                  type: integer
+	                delay:
+	                  type: integer
+	                image:
+	                  type: string
+	      additionalPrinterColumns:
+	        - name: Length
+	          type: integer
+	          description: The length of the countdown
+	          jsonPath: .spec.length
+	        - name: Delay
+	          type: integer
+	          description: The length of time (ms) between executions
+	          jsonPath: .spec.delay
+	```
+	+ With this, you can create our own Countdown resource in file countdown.yaml:
+		```yaml
+		apiVersion: stable.dwk/v1
+		kind: Countdown
+		metadata:
+		  name: doomsday
+		spec:
+		  length: 20
+		  delay: 1200
+		  image: my/image
+		```
+	+ Apply with:
+		```sh
+		$ kubectl apply -f countdown.yaml
+		countdown.stable.dwk/doomsday created
+
+		$ kubectl get cd
+		NAME        LENGTH   DELAY
+		doomsday    20       1200
+		```
 
 ### Workloads
 
@@ -1008,17 +1111,17 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-	name: my-nodeport-service
+  name: my-nodeport-service
 spec:
-	type: NodePort
-	selector:
-	app: my-app # This is the app as declared in the deployment
-	ports:
-		- name: http
-			nodePort: 30080 # This is the port that is available outside. Value for nodePort can be between 30000-32767
-			protocol: TCP
-			port: 1234 # This is a port that is available to the cluster, in this case it can be ~ anything
-			targetPort: 3000 # This is the target port
+  type: NodePort
+  selector:
+    app: my-app # This is the app as declared in the deployment
+  ports:
+    - name: http
+      nodePort: 30080 # This is the port that is available outside. Value for nodePort can be between 30000-32767
+      protocol: TCP
+      port: 1234 # This is a port that is available to the cluster, in this case it can be ~ anything
+      targetPort: 3000 # This is the target port
 ```
 
 ##### ClusterIP
@@ -1030,15 +1133,15 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-name: my-clusterip-svc
+  name: my-clusterip-svc
 spec:
-type: ClusterIP
-selector:
-	app: my-app
-ports:
-	- port: 2345
-		protocol: TCP
-		targetPort: 3000
+  type: ClusterIP
+  selector:
+    app: my-app
+  ports:
+    - port: 2345
+      protocol: TCP
+      targetPort: 3000
 ```
 
 ##### LoadBalancer
@@ -1065,18 +1168,18 @@ ports:
 	apiVersion: networking.k8s.io/v1
 	kind: Ingress
 	metadata:
-	name: my-ingress
+	  name: my-ingress
 	spec:
-	rules:
-	- http:
-		paths:
-		- path: /
-			pathType: Prefix
-			backend:
-			service:
-				name: my-svc
-				port:
-					number: 2345
+	  rules:
+	    - http:
+	        paths:
+	          - path: /
+	            pathType: Prefix
+	            backend:
+	              service:
+	                name: my-svc
+	                port:
+	                  number: 2345
 	```
 
 #### [Gateway API](https://gateway-api.sigs.k8s.io/docs/introduction/)
@@ -1102,16 +1205,16 @@ ports:
 	apiVersion: gateway.networking.k8s.io/v1
 	kind: Gateway
 	metadata:
-	name: my-gateway
+	  name: my-gateway
 	spec:
-	gatewayClassName: gke-l7-global-external-managed # This picks a GatewayClass following the Google recommendations
-	listeners:
-	- name: http # This says that our cluster accepts HTTP traffic to port 80
-		protocol: HTTP
-		port: 80
-		allowedRoutes:
-		kinds:
-		- kind: HTTPRoute
+	  gatewayClassName: gke-l7-global-external-managed # This picks a GatewayClass following the Google recommendations
+	  listeners:
+	    - name: http # This says that our cluster accepts HTTP traffic to port 80
+	      protocol: HTTP
+	      port: 80
+	      allowedRoutes:
+	        kinds:
+	          - kind: HTTPRoute
 	```
 - [HTTPRoute](https://gateway-api.sigs.k8s.io/guides/user-guides/http-routing/):
 	+ Defines HTTP-specific routing rules for mapping traffic from a Gateway listener to a representation of backend network endpoints. These endpoints are often represented as a Service.
@@ -1120,18 +1223,18 @@ ports:
 	apiVersion: gateway.networking.k8s.io/v1beta1
 	kind: HTTPRoute
 	metadata:
-	name: my-route
+	  name: my-route
 	spec:
-	parentRefs:
-	- name: my-gateway # This points to the Gateway resource where it belongs
-	rules:
-	- matches: # This says that requests to the path / are routed to service my-app-svc
-		- path:
-			type: PathPrefix
-			value: /
-		backendRefs:
-		- name: my-app-svc
-		port: 80
+	  parentRefs:
+	    - name: my-gateway # This points to the Gateway resource where it belongs
+	  rules:
+	    - matches: # This says that requests to the path / are routed to service my-app-svc
+	        - path:
+	            type: PathPrefix
+	            value: /
+	      backendRefs:
+	        - name: my-app-svc
+	          port: 80
 	```
 - GRPCRoute:
 	+ Defines gRPC-specific rules for mapping traffic from a Gateway listener to a representation of backend network endpoints. These endpoints are often represented as a Service.
@@ -1260,11 +1363,11 @@ ports:
 		```yaml
 		...
 		spec:
-			containers:
-			- name: <my-app>
-			image: <docker-image>
-			nodeSelector:
-			networkquality: excellent
+		  containers:
+		    - name: <my-app>
+		      image: <docker-image>
+		  nodeSelector:
+		    networkquality: excellent
 		```
 		If the pod is already running, K8s won't terminate it to avoid unwanted changes in the system, instead a new pod is scheduled:
 		```bash
@@ -1290,8 +1393,8 @@ ports:
 - Deployments use them to identify their Pods; Services use it to identify which Pods should receive traffic.
 ```yaml
 selector:
-matchLabels:
-	app: project
+  matchLabels:
+    app: project
 ```
 
 #### nodeSelector
@@ -1477,11 +1580,11 @@ spec:
 apiVersion: v1
 kind: Secret
 metadata:
-	name: my-secret
+  name: my-secret
 type: Opaque # Most basic secret type
 data:
-	db-root-username: dXNlcm5hbWU= # Must be encoded in base64
-	db-root-password: cGFzc3dvcmQ=
+  db-root-username: dXNlcm5hbWU= # Must be encoded in base64
+  db-root-password: cGFzc3dvcmQ=
 ```
 - Encrypting secrets:
 	+ Cloud service providers may have their own solution, like Google Cloud Secret Manager or AWS Secrets Manager.
@@ -1505,26 +1608,26 @@ data:
 		apiVersion: v1
 		kind: ConfigMap
 		metadata:
-		name: example-configmap
+		  name: example-configmap
 		data:
-		serverconfig.txt: |
-			maxplayers=12
-			difficulty=2
+		  serverconfig.txt: |
+		    maxplayers=12
+		    difficulty=2
 		```
 	+ The ConfigMap can be added to the container as a volume. By changing a value, like "maxplayers" in this case, and applying the ConfigMap the changes would be reflected in that volume.
 		```yaml
 		spec:
-		volumes:
-			- name: game-config
-			configMap:
-				name: example-configmap
-		containers:
-			- name: game-server
-			image: example/game-server
-			volumeMounts:
-				- name: game-config
-				mountPath: /etc/game-config
-				readOnly: true
+		  volumes:
+		    - name: game-config
+		      configMap:
+		        name: example-configmap
+		  containers:
+		    - name: game-server
+		      image: example/game-server
+		      volumeMounts:
+		        - name: game-config
+		          mountPath: /etc/game-config
+		          readOnly: true
 		```
 
 #### Health Checks
@@ -1559,35 +1662,35 @@ data:
 	+ K8s will ping a path. If it gets a response in 200 or 300 range, it will mark it as healthy. Otherwise, it'll be marked as unhealthy.
 	```yaml
 	spec:
-	containers:
-	- name: liveness
-		livenessProbe:
-		httpGet:
-			path: /healthz
-			port: 8080
+	  containers:
+	    - name: liveness
+	      livenessProbe:
+	        httpGet:
+	          path: /healthz
+	          port: 8080
 	```
 - Command probe:
 	+ K8s will run a command inside your container. If the command returns with an exit code zero, then the container will be marked healthy. Otherwise, it will be marked unhealthy.
 	+ Useful when you can't or don't want to run an HTTP server, but you can run a command that can check if your app is healthy or not.
 	```yaml
 	spec:
-	containers:
-	- name: liveness
-		livenessProbe:
-		exec:
-			command:
-			- myprogram
+	  containers:
+	    - name: liveness
+	      livenessProbe:
+	        exec:
+	          command:
+	            - myprogram
 	```
 - TCP probe:
 	+ K8s will try to establish a TCP connection on the specified port. If it can establish a connection, the container is considered healthy. If it can't, it's considered a failure.
 	+ Useful if you have a scenario where the HTTP probe or the command probe don't work well (e.g., gRPC or FTP service).
 	```yaml
 	spec:
-	containers:
-	- name: liveness
-		livenessProbe:
-		tcpSocket:
-			port: 8080
+	  containers:
+	    - name: liveness
+	      livenessProbe:
+	        tcpSocket:
+	          port: 8080
 	```
 
 ##### Configuring Probes
@@ -1643,19 +1746,19 @@ metadata:
   name: demo
 spec:
   limits:
-- default: # The default limits for a container in the pod. Any containers that don't explicitly set these values themselves will get assigned the default values.
-    cpu: 600m
-    memory: 100Mib
-  defaultRequest: # The default requests for a container in a pod.
-    cpu: 100m
-    memory: 50Mib
-  max: # The maximum limits that a container in a pod can set. The default section and the limits in a container cannot be set higher than this.
-    cpu: 1000m
-    memory: 200Mib
-  min: # The minimum requests of a container and a pod can set. The default requests and requests cannot be lower than this.
-    cpu: 10m
-    memory: 10Mib
-  type: Container
+    - default: # The default limits for a container in the pod. Any containers that don't explicitly set these values themselves will get assigned the default values.
+        cpu: 600m
+        memory: 100Mib
+      defaultRequest: # The default requests for a container in a pod.
+        cpu: 100m
+        memory: 50Mib
+      max: # The maximum limits that a container in a pod can set. The default section and the limits in a container cannot be set higher than this.
+        cpu: 1000m
+        memory: 200Mib
+      min: # The minimum requests of a container and a pod can set. The default requests and requests cannot be lower than this.
+        cpu: 10m
+        memory: 10Mib
+      type: Container
 ```
 
 #### Overcommitment
@@ -1704,22 +1807,22 @@ spec:
 	adminPassword: admin
 
 	datasources:
-	datasources.yaml:
-		apiVersion: 1
-		datasources:
-		- name: Prometheus
-			type: prometheus
-			access: proxy
-			url: http://prom-prometheus-server
-			isDefault: true
-		- name: Loki
-			type: loki
-			access: proxy
-			url: http://loki-gateway.monitoring.svc.cluster.local
-			jsonData:
-			httpHeaderName1: X-Scope-OrgID
-			secureJsonData:
-			httpHeaderValue1: "1"
+	  datasources.yaml:
+	    apiVersion: 1
+	    datasources:
+	      - name: Prometheus
+	        type: prometheus
+	        access: proxy
+	        url: http://prom-prometheus-server
+	        isDefault: true
+	      - name: Loki
+	        type: loki
+	        access: proxy
+	        url: http://loki-gateway.monitoring.svc.cluster.local
+	        jsonData:
+	          httpHeaderName1: X-Scope-OrgID
+	        secureJsonData:
+	          httpHeaderValue1: "1"
 	```
 
 #### [Kustomize](https://itnext.io/kubernetes-kustomize-cheat-sheet-8e2d31b74d8f)
@@ -1753,32 +1856,32 @@ spec:
 		apiVersion: argoproj.io/v1alpha1
 		kind: Rollout
 		metadata:
-		name: my-app-dep
+		  name: my-app-dep
 		spec:
-		replicas: 4
-		selector:
-			matchLabels:
-			app: my-app
-		strategy:
-			canary: # This tells the rollout to move 25% of the pods to a new version, then wait for 30 seconds, move to 50% of pods, and then wait for 30 seconds until every pod is updated.
-			steps:
-			- setWeight: 25
-			- pause:
-				duration: 30s
-			- setWeight: 50
-			- pause:
-				duration: 30s
-			- analysis:
-				templates:
-				- templateName: restart-rate
-		template:
-			metadata:
-			labels:
-				app: my-app
-			spec:
-			containers:
-				- name: my-app
-				image: my/image:v1
+		  replicas: 4
+		  selector:
+		    matchLabels:
+		      app: my-app
+		  strategy:
+		    canary: # This tells the rollout to move 25% of the pods to a new version, then wait for 30 seconds, move to 50% of pods, and then wait for 30 seconds until every pod is updated.
+		      steps:
+		        - setWeight: 25
+		        - pause:
+		            duration: 30s
+		        - setWeight: 50
+		        - pause:
+		            duration: 30s
+		        - analysis:
+		            templates:
+		              - templateName: restart-rate
+		  template:
+		    metadata:
+		      labels:
+		        app: my-app
+		    spec:
+		      containers:
+		        - name: my-app
+		          image: my/image:v1
 		```
 
 	+ Analysis: a custom resource which lets you describe how to perform analysis it lets you define what metrics to measure and when and how to interpret those measurements as an update is happening analysis continuously queries metric providers to measure the success of an update.
@@ -1787,20 +1890,20 @@ spec:
 	apiVersion: argoproj.io/v1alpha1
 	kind: AnalysisTemplate
 	metadata:
-	name: restart-rate
+	  name: restart-rate
 	spec:
-	metrics:
-	- name: restart-rate
-		initialDelay: 2m
-		successCondition: result < 2
-		provider:
-		prometheus:
-			address: http://kube-prometheus-stack-xxxx-prometheus.prometheus.svc.cluster.local:9090 # DNS name for Prometheus
-			query: | # If the number of overall restarts over the last 2 minutes is higher than two, it will fail the analysis
-			scalar(
-				sum(kube_pod_container_status_restarts_total{namespace="default", container="flaky-update"}) -
-				sum(kube_pod_container_status_restarts_total{namespace="default", container="flaky-update"} offset 2m)
-			)
+	  metrics:
+	    - name: restart-rate
+	      initialDelay: 2m
+	      successCondition: result < 2
+	      provider:
+	        prometheus:
+	          address: http://kube-prometheus-stack-xxxx-prometheus.prometheus.svc.cluster.local:9090 # DNS name for Prometheus
+	          query: | # If the number of overall restarts over the last 2 minutes is higher than two, it will fail the analysis
+	            scalar(
+	              sum(kube_pod_container_status_restarts_total{namespace="default", container="flaky-update"}) -
+	              sum(kube_pod_container_status_restarts_total{namespace="default", container="flaky-update"} offset 2m)
+	            )
 	```
 
 ##### [BlueGreen](https://argoproj.github.io/argo-rollouts/features/bluegreen/)
@@ -1882,21 +1985,21 @@ spec:
 	apiVersion: argoproj.io/v1alpha1
 	kind: Application
 	metadata:
-	name: myapp
-	namespace: argocd
+	  name: myapp
+	  namespace: argocd
 	spec:
-	project: default
-	source:
-		repoURL: https://github.com/anasfajoui/myapp
-		path: overlays/prod
-		targetRevision: HEAD
-	destination:
-		server: https://kubernetes.default.svc
-		namespace: default
-	syncPolicy:
-		automated:
-		prune: true
-		selfHeal: true
+	  project: default
+	  source:
+	    repoURL: https://github.com/anasfajoui/myapp
+	    path: overlays/prod
+	    targetRevision: HEAD
+	  destination:
+	    server: https://kubernetes.default.svc
+	    namespace: default
+	  syncPolicy:
+	    automated:
+	      prune: true
+	      selfHeal: true
 	```
 - The application is then set up to ArgoCD by applying the definition:
 	```sh
@@ -1942,20 +2045,20 @@ spec:
 		apiVersion: apps/v1
 		kind: Deployment
 		metadata:
-		name: myapp-dep
+		  name: myapp-dep
 		spec:
-		replicas: 1
-		selector:
-			matchLabels:
-			app: myapp
-		template:
-			metadata:
-			labels:
-				app: myapp
-			spec:
-			containers:
-				- name: myapp
-				image: PROJECT/IMAGE
+		  replicas: 1
+		  selector:
+		    matchLabels:
+		      app: myapp
+		  template:
+		    metadata:
+		      labels:
+		        app: myapp
+		    spec:
+		      containers:
+		        - name: myapp
+		          image: PROJECT/IMAGE
 		```
 	+ The `base/kustomization.yaml` is simple:
 		```yaml
@@ -1971,9 +2074,9 @@ spec:
 			apiVersion: apps/v1
 			kind: Deployment
 			metadata:
-			name: dep
+			  name: dep
 			spec:
-			replicas: 3
+			  replicas: 3
 			```
 		* The `overlays/prod/kustomization.yaml` looks like following:
 			```yaml
@@ -1981,15 +2084,15 @@ spec:
 			kind: Kustomization
 
 			resources: # Refers to the base.
-			- ./../../base
+			  - ./../../base
 			patches: # Patches (also called overlays) add or override fields on resources. So this would patch the base with the deployment that sets the number of replicas to 3.
-			- path: deployment.yaml
+			  - path: deployment.yaml
 
 			namePrefix: prod- # Adds prefix to resources' name
 
 			images:
-			- name: PROJECT/IMAGE
-				newName: nginx:1.31-alpine
+			  - name: PROJECT/IMAGE
+			    newName: nginx:1.31-alpine
 			```
 		* The `overlays/staging/kustomization.yaml` can just sets the image:
 			```yaml
@@ -1997,12 +2100,12 @@ spec:
 			kind: Kustomization
 
 			resources:
-			- ./../../base
+			  - ./../../base
 			namePrefix: staging-
 
 			images:
-			- name: PROJECT/IMAGE
-				newName: nginx:1.31-bookworm
+			  - name: PROJECT/IMAGE
+			    newName: nginx:1.31-bookworm
 			```
 	+ Everything can then be deployed using ArgoCD for example by pointing to the corresponding overlay directories.
 
